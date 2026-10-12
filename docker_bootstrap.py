@@ -1,5 +1,6 @@
 """Import a complete Novel backup into a separate persistent Docker library."""
 import argparse
+from contextlib import closing
 import hashlib
 import json
 from pathlib import Path
@@ -15,12 +16,22 @@ def bootstrap(source, destination):
     if marker.get('format')!='novel-library-v1' or not marker.get('complete'):
         raise ValueError('Une sauvegarde complète de Novel est requise.')
     if not (source/'library.sqlite').is_file():raise ValueError('Catalogue de sauvegarde absent.')
+    for path in source.rglob('*'):
+        if path.is_symlink() or path.name in ('.codex', 'auth.json', '.env'):
+            raise ValueError('Liens ou identifiants interdits dans une sauvegarde de bibliothèque.')
     databases=list(source.rglob('*.sqlite'))
     for path in databases:
         db=sqlite3.connect(path.as_uri()+'?mode=ro',uri=True)
         try:
             if db.execute('PRAGMA integrity_check').fetchone()[0]!='ok':raise ValueError('Base de sauvegarde endommagée.')
         finally:db.close()
+    with closing(sqlite3.connect((source/'library.sqlite').as_uri()+'?mode=ro',uri=True)) as catalog:
+        hashes = {json.loads(row[0])['book_hash'] for row in catalog.execute('SELECT metadata FROM origins')}
+    for book_hash in hashes:
+        if not isinstance(book_hash, str) or len(book_hash) != 64 or any(c not in '0123456789abcdef' for c in book_hash):
+            raise ValueError('Empreinte EPUB invalide.')
+        book = source/'books'/(book_hash+'.epub')
+        if not book.is_file():raise ValueError('Archive EPUB de sauvegarde absente.')
     for book in (source/'books').glob('*.epub'):
         if hashlib.sha256(book.read_bytes()).hexdigest()!=book.stem:raise ValueError('Archive EPUB incohérente.')
     destination.parent.mkdir(parents=True,exist_ok=True)

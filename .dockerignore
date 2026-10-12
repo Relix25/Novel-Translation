@@ -1,9 +1,24 @@
 # Explicit build allowlist: private files cannot enter the build context.
 **
 !Dockerfile
-!*.py
-test_*.py
+!app.py
+!batches.py
+!bulk_jobs.py
+!codex_bridge.py
+!consumption.py
+!demo_fixture.py
+!epubs.py
+!folders.py
+!instance_lock.py
+!job_tracking.py
+!library.py
+!novel_v1.py
+!quality_review.py
+!quota.py
+!source_images.py
+!story_memory.py
 !frontend/
+frontend/**
 !frontend/package.json
 !frontend/package-lock.json
 !frontend/vite.config.js
@@ -11,3 +26,6 @@ test_*.py
 !frontend/src/
 !frontend/src/**
 !frontend/THIRD_PARTY_NOTICES.txt
+frontend/node_modules/**
+frontend/.npm-cache/**
+frontend/dist/**

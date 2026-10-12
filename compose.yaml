@@ -37,3 +37,4 @@ services:
         max-file: "3"
 volumes:
   codex-home:
+    name: ${NOVEL_CODEX_VOLUME:-novel_codex-home}
