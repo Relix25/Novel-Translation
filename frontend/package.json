@@ -1,0 +1,20 @@
+{
+  "name": "novel-workspace",
+  "version": "0.7.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "vite build --configLoader native",
+    "dev": "vite --configLoader native --host 127.0.0.1"
+  },
+  "dependencies": {
+    "@mantine/core": "^9.7.1",
+    "@mantine/hooks": "^9.7.1",
+    "@tabler/icons-react": "^3.0.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "vite": "^7.0.0"
+  }
+}

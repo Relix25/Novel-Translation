@@ -1,0 +1,39 @@
+name: novel
+services:
+  novel:
+    build:
+      context: .
+      args:
+        CODEX_VERSION: 0.162.0-alpha.17.2
+    image: novel-local:0.7
+    init: true
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8791:8788"
+    volumes:
+      - type: bind
+        source: ./docker-data/library
+        target: /data/library
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ${NOVEL_SOURCES_DIR:-./imports}
+        target: /imports
+        read_only: true
+        bind:
+          create_host_path: false
+      - codex-home:/home/node/.codex
+    stop_grace_period: 30s
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen(urllib.request.Request('http://127.0.0.1:8788/health', headers={'Host':'127.0.0.1:8791'}), timeout=3)"]
+      interval: 20s
+      timeout: 5s
+      start_period: 15s
+      retries: 3
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+volumes:
+  codex-home:

@@ -218,3 +218,30 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Novel: local libraries, credentials, imports and evidence never enter Git.
+/appdata/
+/docker-data/
+/imports/*
+!/imports/.gitkeep
+/backups/
+/demo/
+**/.codex/
+**/auth.json
+**/settings.local.json
+.env.*
+!.env.example
+*.sqlite
+*.sqlite3
+*.db
+*-wal
+*-shm
+*.epub
+*.zip
+*.png
+*.jpg
+*.jpeg
+verification-*
+node_modules/
+.npm-cache/
+/local-*/
