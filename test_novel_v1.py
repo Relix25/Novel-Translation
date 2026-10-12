@@ -179,7 +179,9 @@ class WorkflowTests(unittest.TestCase):
         finally:
             restored.close()
         # Simulate a destination appearing after the initial existence check.
-        concurrent = Path(self.temporary.name) / "concurrent.sqlite"
+        # Windows runners can provide an 8.3 TEMP alias; backup resolves it to
+        # the long path before checking existence. Match that canonical path.
+        concurrent = (Path(self.temporary.name) / "concurrent.sqlite").resolve()
         concurrent.write_bytes(b"Existing backup must survive")
         original_exists = Path.exists
         def stale_exists(path):
