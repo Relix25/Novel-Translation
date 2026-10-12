@@ -1,9 +1,19 @@
-# Signaler une vulnérabilité
+# Reporting vulnerabilities
 
-Pour une vulnérabilité, utiliser « Report a vulnerability » dans l’onglet Security du dépôt lorsqu’il est disponible. Éviter les rapports publics contenant des secrets ou des textes privés.
+Use **Report a vulnerability** in the repository Security tab when available.
+Do not disclose secrets or private text in public reports.
 
-Les bibliothèques, originaux, sauvegardes, journaux et sessions Codex restent locaux. La connexion appartient au CLI Codex ; Novel n’utilise aucune clé API. Un volume Codex ne doit jamais être publié, exporté dans une image ni ajouté à Git.
+Libraries, originals, backups, logs and Codex sessions stay local. Codex owns
+authentication; Novel uses no API key. Never publish a session volume, export
+it into an image or add it to Git.
 
-Le service est publié uniquement sur l’interface locale. Il contrôle l’hôte, l’origine et un jeton CSRF pour les mutations. Il n’est pas conçu pour une exposition directe sur Internet ni pour plusieurs utilisateurs non fiables.
+The local service checks host, origin and CSRF tokens. It is not designed for
+direct Internet exposure or mutually untrusted users.
 
-Avant une contribution, exécuter `python tools/check_public_files.py --history`. Ce contrôle repère les artefacts privés et certaines formes de secrets ; il ne remplace pas l’examen du diff et ne peut reconnaître tout texte privé placé dans un fichier de code.
+Run `python tools/check_public_files.py --history` before publication and inspect
+the diff. The scanner identifies private paths and some credentials without
+printing values; it cannot recognize every private passage placed in source code.
+
+Protected main, read-only CI, dependency alerts, secret scanning, push protection
+and private reporting are enabled. Main changes require a checked PR.
+Editorial proposals never become approved glossary or memory automatically.

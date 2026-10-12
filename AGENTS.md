@@ -1,17 +1,17 @@
 # Novel
 
-Ce dossier est le socle local de traduction de séries longues avec Codex.
+This repository is the local foundation for translating long-running series with Codex.
 
-- Générer les traductions et résumés dans Codex avec le compte ChatGPT. Ne pas ajouter de clé API ni de service externe de génération.
-- Conserver les sources originales et les identifiants des segments. Ne pas fabriquer de texte pour remplacer un chapitre absent.
-- Préparer le contexte avec `prepare` ; soumettre le JSON avec `submit`. Relire avant d'approuver une empreinte précise avec `review`.
-- Appliquer le glossaire approuvé. Documenter les exceptions dans le motif de relecture. Un changement de glossaire exige une nouvelle validation des chapitres concernés.
-- Les résumés doivent citer les segments du chapitre, être relus et approuvés séparément. Ne pas introduire de faits révélés après le chapitre du lecteur.
-- La démonstration est synthétique. Elle ne constitue pas une traduction d'un roman fourni par l'utilisateur.
-- Exécuter `test.cmd` après une modification du socle. Les tests structurels ne remplacent pas la lecture comparée des textes réels.
-- Ne pas publier le lecteur ou programmer de traitement récurrent sans demande utilisateur correspondante.
-- L'application indépendante démarre via launch.cmd/app.py ; library.py gère les séries et les concepts multilingues. Conserver les bases existantes du socle.
-- Utiliser Codex App Server avec la connexion ChatGPT détenue par Codex. Ne jamais copier ou afficher les identifiants.
-- Les travaux automatiques de Novel utilisent des sessions Codex éphémères. Si Codex ne confirme pas ce mode, refuser la génération ; ne jamais revenir silencieusement à un chat persistant.
-- Réglage demandé par l'utilisateur : Luna High pour traduire, Luna Low pour résumer. Vérification automatique Sol High, deux passes maximum par lot ; la seconde concerne uniquement les lots corrigés ou incertains. Conserver les versions et les décisions sourcées. Aucun passage supplémentaire, changement de modèle silencieux ou redémarrage automatique après erreur. La vérification IA reste distincte de l'approbation finale et de celle des résumés.
-- Les tests avec FakeBridge sont structurels et ne prouvent pas l'accès réel à un modèle. Documenter séparément les essais Codex réels et leurs tokens.
+- Generate translations and summaries through Codex using the ChatGPT account. Do not add an API key or external generation service.
+- Preserve original sources and segment identifiers. Never invent text to replace a missing chapter.
+- Prepare context with `prepare` and submit JSON with `submit`. Read before approving an exact fingerprint with `review`.
+- Apply the approved glossary within its scope. Document exceptions in the review reason. A glossary change requires new approval of affected chapters.
+- Summaries must cite chapter segments and be reviewed and approved separately. Do not introduce facts revealed after the reader's chapter.
+- The demonstration is synthetic. It is not a translation of a novel supplied by the user.
+- Run `test.cmd` after changing the foundation. Structural tests do not replace bilingual reading of real texts.
+- Do not publish the reader or schedule recurring processing without a corresponding user request.
+- The standalone application starts through launch.cmd/app.py; library.py manages series and multilingual concepts. Preserve existing databases.
+- Use Codex App Server with the ChatGPT session owned by Codex. Never copy or display credentials.
+- Automatic Novel jobs use ephemeral Codex sessions. If Codex does not confirm this mode, refuse generation; never silently fall back to a persistent chat.
+- User-requested profile: Luna High for translation and Luna Low for summaries. Automatic review uses Sol High with at most two passes per batch; the second checks only corrected or uncertain batches. Preserve versions and cited decisions. No additional pass, silent model change or automatic restart after an error. AI review remains separate from final approval and summary approval.
+- FakeBridge tests are structural and do not prove access to a real model. Document real Codex trials and their tokens separately.
