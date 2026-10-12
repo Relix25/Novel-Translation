@@ -13,7 +13,7 @@ def executable():
     configured = os.environ.get('NOVEL_CODEX_BIN')
     if configured:
         if not Path(configured).is_file():
-            raise ValueError('NOVEL_CODEX_BIN doit désigner le binaire Codex installé.')
+            raise ValueError('NOVEL_CODEX_BIN must point to the installed Codex executable.')
         return configured
     found = shutil.which('codex')
     if found:
@@ -23,7 +23,7 @@ def executable():
     candidates = list((base / 'OpenAI/Codex/bin').glob('*/codex.exe'))
     if candidates:
         return str(max(candidates, key=lambda p: p.stat().st_mtime))
-    raise ValueError('Codex CLI introuvable. Installer Codex ou définir NOVEL_CODEX_BIN.')
+    raise ValueError('Codex CLI not found. Install Codex or set NOVEL_CODEX_BIN.')
 
 
 class CodexBridge:
@@ -76,7 +76,7 @@ class CodexBridge:
 
     def _send(self, value):
         if not self.process or self.process.poll() is not None:
-            raise ValueError('La connexion Codex est fermée.')
+            raise ValueError('The Codex connection is closed.')
         self.process.stdin.write(json.dumps(value, ensure_ascii=False) + '\n')
         self.process.stdin.flush()
 
@@ -84,11 +84,11 @@ class CodexBridge:
         try:
             message = self.messages.get(timeout=max(0.01, deadline - time.monotonic()))
         except queue.Empty:
-            raise TimeoutError('Codex ne répond pas dans le délai prévu.')
+            raise TimeoutError('Codex did not respond before the timeout.')
         if message.get('_closed'):
-            raise ValueError('Codex App Server a fermé la connexion. Vérifier codex login et les droits '
-                             'sur le dossier .codex. Si Novel a été lancé depuis une session Codex '
-                             'restreinte, fermer ce processus et lancer launch.cmd directement dans Windows.')
+            raise ValueError('Codex App Server closed the connection. Check codex login and permissions '
+                             'on the .codex directory. If Novel was started from a restricted Codex '
+                             'session, close this process and run launch.cmd directly in Windows.')
         # Never execute client-side tools or grant an unexpected permission.
         if 'method' in message and 'id' in message:
             self._send({'id': message['id'], 'error': {'code': -32601,
@@ -104,7 +104,7 @@ class CodexBridge:
             message = self._next(deadline)
             if message.get('id') == request_id and 'method' not in message:
                 if 'error' in message:
-                    raise ValueError(message['error'].get('message', 'Erreur Codex'))
+                    raise ValueError(message['error'].get('message', 'Codex error'))
                 return message.get('result', {})
             if 'method' in message and 'id' not in message:
                 self.events.append(message)
@@ -115,7 +115,7 @@ class CodexBridge:
             return {**self.quota_cache.snapshot(),'busy':True}
         try:
             if not self.process or self.process.poll() is not None:
-                self.quota_cache.failed('Connecter Codex pour actualiser le quota.')
+                self.quota_cache.failed('Connect Codex to refresh the quota.')
             else:
                 try:self.quota_cache.update(self.rpc('account/rateLimits/read',{},timeout=10))
                 except (ValueError,TimeoutError,OSError) as error:self.quota_cache.failed(error)
@@ -146,13 +146,13 @@ class CodexBridge:
         with self.lock:
             connection = self.connection()
             if not connection['connected']:
-                raise ValueError('Se connecter à Codex avec ChatGPT : codex login. Aucun mode clé API accepté.')
+                raise ValueError('Sign in to Codex with ChatGPT: codex login. API key authentication is not supported.')
             selected = next((m for m in connection['models'] if m['model'] == model), None)
             if not selected:
-                raise ValueError('Le modèle choisi ne figure pas dans le catalogue Codex actuel.')
+                raise ValueError('The selected model is not in the current Codex catalogue.')
             efforts = [e['reasoningEffort'] for e in selected.get('supportedReasoningEfforts', [])]
             if effort not in efforts:
-                raise ValueError('Effort non pris en charge pour ce modèle.')
+                raise ValueError('Reasoning effort is not supported by this model.')
             started = self.rpc('thread/start', {'model': model, 'cwd': str(cwd),
                 'ephemeral': True,
                 'sandbox': 'read-only', 'approvalPolicy': 'never',
@@ -166,10 +166,10 @@ class CodexBridge:
                 try:
                     self.rpc('thread/archive', {'threadId': thread})
                 except Exception as error:
-                    raise ValueError('Codex ne confirme pas le mode sans historique. '
-                                     'Aucune génération lancée ; archivage de la session refusé.') from error
-                raise ValueError('Codex ne confirme pas le mode sans historique. '
-                                 'Aucune génération lancée ; session archivée. Mettre Codex à jour.')
+                    raise ValueError('Codex did not confirm ephemeral mode. '
+                                     'No generation started; session archival was refused.') from error
+                raise ValueError('Codex did not confirm ephemeral mode. '
+                                 'No generation started; session archived. Update Codex.')
             self.events = []
             try:
                 turn = self.rpc('turn/start', {'threadId': thread,
@@ -189,9 +189,9 @@ class CodexBridge:
                 while True:
                     current = time.monotonic()
                     if current >= deadline:
-                        raise TimeoutError('Durée maximale de l’appel atteinte ; reprise manuelle nécessaire.')
+                        raise TimeoutError('Call timeout reached; manual resume is required.')
                     if current - last_activity >= idle_timeout:
-                        raise TimeoutError('Codex ne donne plus de signe d’activité ; traitement arrêté sans relance automatique.')
+                        raise TimeoutError('Codex is no longer reporting activity; stopped without automatic retry.')
                     emit({'kind': 'heartbeat'})
                     try:
                         message = self.events.pop(0) if self.events else self._next(min(deadline, last_activity + idle_timeout, current + 1))
@@ -217,9 +217,9 @@ class CodexBridge:
                     if method == 'turn/completed' and params.get('turn', {}).get('id') == turn:
                         completed = params['turn']
                         if completed.get('status') != 'completed':
-                            raise ValueError('Génération non terminée : ' + str(completed.get('error') or completed['status']))
+                            raise ValueError('Generation did not finish: ' + str(completed.get('error') or completed['status']))
                         if not final:
-                            raise ValueError('Codex a terminé sans résultat JSON.')
+                            raise ValueError('Codex finished without a JSON result.')
                         return {'response': json.loads(final), 'model': model, 'effort': effort,
                                 'thread_id': thread, 'turn_id': turn, 'token_usage': usage,
                                 'ephemeral': True}

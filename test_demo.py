@@ -14,7 +14,7 @@ class DemoTests(unittest.TestCase):
                         self.assertEqual(len(project.status()), 3)
                         self.assertTrue(all(c['state'] == 'approved' for c in project.status()))
                         self.assertTrue(all(project.chapter(n)['summary_state'] == 'approved' for n in (1, 2, 3)))
-                with self.assertRaisesRegex(ValueError, 'déjà chargée'):
+                with self.assertRaisesRegex(ValueError, 'already loaded'):
                     app.action({'action': 'demo'})
             finally:
                 app.close()

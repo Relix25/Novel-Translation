@@ -43,7 +43,7 @@ class WorkspaceTests(unittest.TestCase):
             versions=p.versions(1)
             self.assertTrue(any(v['state']=='approved' and v['translation_hash']==original['translation_hash'] for v in versions))
             self.assertNotEqual(saved['translation_hash'],original['translation_hash'])
-            with self.assertRaisesRegex(ValueError,'changé'):
+            with self.assertRaisesRegex(ValueError,'changed'):
                 p.edit(1,original['translation_hash'],p.packet(1)['packet_hash'],{segments[0]['id']:'Stale tab'})
             old=next(v for v in versions if v['state']=='approved')
             restored=p.restore_version(1,old['id'],after['translation_hash'],p.packet(1)['packet_hash'])
@@ -56,7 +56,7 @@ class WorkspaceTests(unittest.TestCase):
             c=p.chapter(1);sid=json.loads(c['segments'])[0]['id'];packet=p.packet(1)['packet_hash']
             for edits in ({sid:''},{'unknown':'Text'},{}):
                 with self.assertRaises(ValueError):p.edit(1,c['translation_hash'],packet,edits)
-            with self.assertRaisesRegex(ValueError,'contexte'):p.edit(1,c['translation_hash'],'old-context',{sid:'Text'})
+            with self.assertRaisesRegex(ValueError,'Context'):p.edit(1,c['translation_hash'],'old-context',{sid:'Text'})
             with self.assertRaises(ValueError):p.restore_version(1,999,c['translation_hash'],packet)
             self.assertEqual(p.chapter(1)['translation_hash'],c['translation_hash'])
 
@@ -100,7 +100,7 @@ class WorkspaceTests(unittest.TestCase):
             with self.lib.pair(self.sid,'en','fr') as p:
                 c=p.chapter(1);sid=json.loads(c['segments'])[0]['id'];packet=p.packet(1)['packet_hash']
             self.lib.queue_job(self.sid,'en','fr',1,'translation','gpt-6-luna','high')
-            with self.assertRaisesRegex(ValueError,'fin du travail'):
+            with self.assertRaisesRegex(ValueError,'job on this chapter to finish'):
                 app.action({**self.value,'action':'edit','number':1,'hash':c['translation_hash'],'packet_hash':packet,'edits':{sid:'Do not overwrite'}})
         finally:app.close()
 

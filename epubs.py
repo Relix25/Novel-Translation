@@ -8,6 +8,10 @@ import zipfile
 from xml.etree import ElementTree as ET
 from novel_v1 import digest, require
 
+# Persisted serialization labels predate the English interface. Keeping them
+# stable prevents a harmless UI localization from changing imported sources/IDs.
+LEGACY_OPENING_TITLE = 'Section d’ouverture'
+
 
 def tag(element):
     return element.tag.rsplit('}', 1)[-1]
@@ -15,9 +19,9 @@ def tag(element):
 
 def resource(base, href):
     url = urlsplit(href)
-    require(not url.scheme and not url.netloc, 'Une référence EPUB doit être locale.')
+    require(not url.scheme and not url.netloc, 'An EPUB reference must be local.')
     path = posixpath.normpath(posixpath.join(posixpath.dirname(base), unquote(url.path)))
-    require(not path.startswith(('../', '/')), 'Référence EPUB hors du livre.')
+    require(not path.startswith(('../', '/')), 'EPUB reference escapes the book.')
     return path, unquote(url.fragment)
 
 
@@ -31,7 +35,7 @@ def inline(element):
 
 def paragraphs(doc):
     body = next((e for e in doc.iter() if tag(e) == 'body'), None)
-    require(body is not None, 'Corps XHTML absent dans l’EPUB.')
+    require(body is not None, 'EPUB XHTML body is missing.')
     blocks, anchors, readings, images = [], {}, [], []
     block_tags = {'p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'li', 'pre', 'blockquote'}
     def ruby_runs(e):
@@ -92,6 +96,8 @@ def paragraphs(doc):
             # Ordinary full-page illustrations remain outside the text spine. A
             # glyph-only paragraph has a visible placeholder instead of vanishing.
             if not text and any(item['textual'] for item in embedded):
+                # Keep the persisted placeholder stable for previously imported EPUBs.
+                # render_source supplies the English display placeholder when needed.
                 text = '[caractère en image]'
             if text:
                 collapses = list(re.finditer(r'\n\s*\n', trimmed))
@@ -137,18 +143,18 @@ def kind(label):
 
 
 def read_epub(file):
-    require(file.stat().st_size <= 100_000_000, f'EPUB trop volumineux : {file.name}.')
+    require(file.stat().st_size <= 100_000_000, f'EPUB is too large: {file.name}.')
     raw = file.read_bytes()
-    require(len(raw) <= 100_000_000, f'EPUB trop volumineux : {file.name}.')
+    require(len(raw) <= 100_000_000, f'EPUB is too large: {file.name}.')
     book_hash = hashlib.sha256(raw).hexdigest()
     with zipfile.ZipFile(io.BytesIO(raw)) as archive:
         infos = archive.infolist()
         require(len(infos) <= 10000 and sum(i.file_size for i in infos) <= 200_000_000,
-                'EPUB décompressé trop volumineux.')
-        require(len({i.filename for i in infos}) == len(infos), 'Ressources EPUB dupliquées.')
+                'The unpacked EPUB is too large.')
+        require(len({i.filename for i in infos}) == len(infos), 'Duplicate EPUB resources.')
         def xml(path):
             info = archive.getinfo(path)
-            require(info.file_size <= 5_000_000, f'Ressource XML EPUB trop volumineuse : {path}.')
+            require(info.file_size <= 5_000_000, f'EPUB XML resource is too large: {path}.')
             return ET.fromstring(archive.read(path))
         container = xml('META-INF/container.xml')
         package = next(e.get('full-path') for e in container.iter() if tag(e) == 'rootfile')
@@ -173,12 +179,12 @@ def read_epub(file):
             for image in images:
                 image_path, _ = resource(path,image['href'])
                 info = archive.getinfo(image_path)
-                require(info.file_size <= 1_000_000, 'Image de caractère EPUB trop volumineuse.')
+                require(info.file_size <= 1_000_000, 'The EPUB character image is too large.')
                 all_images.append({**{k:v for k,v in image.items() if k not in ('href','textual')},
                                    'paragraph':image['paragraph']+start, 'resource':path,
                                    'image_resource':image_path,
                                    'image_hash':hashlib.sha256(archive.read(image_path)).hexdigest()})
-        require(all_blocks, 'Cet EPUB ne contient pas de texte lisible (image ou protection possible).')
+        require(all_blocks, 'This EPUB has no readable text (it may contain images or protection).')
         nav = next((i for i in items.values() if 'nav' in i.get('properties', '').split()), None)
         ncx = items.get(spine.get('toc')) or next((i for i in items.values()
                     if i.get('media-type') == 'application/x-dtbncx+xml'), None)
@@ -188,7 +194,7 @@ def read_epub(file):
             doc = xml(nav_path)
             toc = next((e for e in doc.iter() if tag(e) == 'nav' and
                         'toc' in e.get('{http://www.idpf.org/2007/ops}type', '').split()), None)
-            require(toc is not None, 'Navigation EPUB sans table des matières.')
+            require(toc is not None, 'EPUB navigation has no table of contents.')
             navigation = [(inline(e).strip(), *resource(nav_path, e.get('href')))
                           for e in toc.iter() if tag(e) == 'a' and e.get('href')]
         elif ncx:
@@ -205,7 +211,7 @@ def read_epub(file):
             if path not in by_path:
                 continue
             d = by_path[path]
-            require(not anchor or anchor in d['anchors'], f'Ancre de chapitre EPUB absente : {path}#{anchor}.')
+            require(not anchor or anchor in d['anchors'], f'EPUB chapter anchor is missing: {path}#{anchor}.')
             offset = d['start'] + (d['anchors'][anchor] if anchor else 0)
             if d['start'] == d['end']:
                 continue
@@ -220,7 +226,7 @@ def read_epub(file):
             if d['start'] == d['end'] or d['start'] in boundaries:
                 continue
             if d['start'] < first_narrative or not boundaries:
-                boundaries[d['start']] = {'title': f'Section d’ouverture · {d["path"].rsplit("/", 1)[-1]}',
+                boundaries[d['start']] = {'title': f'{LEGACY_OPENING_TITLE} · {d["path"].rsplit("/", 1)[-1]}',
                                          'kind': 'supplementary', 'locator': d['path'] + '#'}
             elif kind(all_blocks[d['start']]) == 'afterword':
                 boundaries[d['start']] = {'title': all_blocks[d['start']], 'kind': 'afterword', 'locator': d['path'] + '#'}
@@ -239,7 +245,7 @@ def read_epub(file):
                                           for r in all_readings if start <= r['paragraph'] < end],
                              'source_images': [{**r, 'paragraph':r['paragraph']-start}
                                                for r in all_images if start <= r['paragraph'] < end]})
-        require(sum(c['paragraphs'] for c in chapters) == len(all_blocks), 'Découpage EPUB incomplet.')
+        require(sum(c['paragraphs'] for c in chapters) == len(all_blocks), 'EPUB segmentation is incomplete.')
         return {'title': title, 'language': lang, 'hash': book_hash, 'chapters': chapters,
                 'image_pages': sum(d['start'] == d['end'] for d in documents),
                 'navigation': 'epub3' if nav else 'ncx' if ncx else 'spine',

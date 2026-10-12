@@ -17,12 +17,12 @@ class JobStopped(ValueError):
 
 def limits(value=None):
     value = {} if value is None else value
-    require(isinstance(value, dict), 'Limites invalides.')
+    require(isinstance(value, dict), 'Invalid limits.')
     result = {}
     for key, default, lower, upper in [('max_tokens',750000,1000,100000000),
             ('max_calls',64,1,1000),('timeout_seconds',600,30,1200),('idle_seconds',120,15,600)]:
         n=value.get(key,default)
-        require(type(n) is int and lower<=n<=upper, 'Limite invalide : '+key)
+        require(type(n) is int and lower<=n<=upper, 'Invalid limit: '+key)
         result[key]=n
     result['idle_seconds']=min(result['idle_seconds'],result['timeout_seconds'])
     return result
@@ -73,23 +73,23 @@ def spent(db, job=None, run=None):
 
 def check(library,row,config,before_call=False):
     current=library.db.execute('SELECT stop_requested FROM jobs WHERE id=?',(row['id'],)).fetchone()
-    if current[0]:raise JobStopped('Arrêt demandé ; les lots validés sont conservés.')
+    if current[0]:raise JobStopped('Stop requested; validated batches are preserved.')
     tokens,calls=spent(library.db,job=row['id'])
-    if tokens>=config['max_tokens']:raise JobStopped('Plafond de tokens du chapitre atteint.')
-    if before_call and calls>=config['max_calls']:raise JobStopped('Nombre maximal d’appels du chapitre atteint.')
+    if tokens>=config['max_tokens']:raise JobStopped('Chapter token limit reached.')
+    if before_call and calls>=config['max_calls']:raise JobStopped('Chapter call limit reached.')
     if before_call:
         missing=library.db.execute("SELECT usage FROM inference_calls WHERE job=? AND state='completed'",(row['id'],)).fetchall()
         if any(not enough_usage(json.loads(r[0] or '{}')) for r in missing):
-            raise JobStopped('Consommation du dernier appel inconnue ; arrêt pour éviter des appels non suivis.')
+            raise JobStopped('Usage for the last call is unknown; stopping to avoid untracked calls.')
     if row.get('run_id'):
         run=library.db.execute('SELECT options,state FROM bulk_runs WHERE id=?',(row['run_id'],)).fetchone()
         # A gentle pause finishes and stores the current call before the next one.
         if run['state']!='running' and (before_call or run['state']!='pause_requested'):
-            raise JobStopped('Pause demandée ; le dernier résultat exploitable est conservé.')
+            raise JobStopped('Pause requested; the last usable result is preserved.')
         budget=json.loads(run['options'])['limits']
         tokens,calls=spent(library.db,run=row['run_id'])
-        if tokens>=budget['max_tokens']:raise JobStopped('Plafond de tokens du traitement atteint.')
-        if before_call and calls>=budget['max_calls']:raise JobStopped('Nombre maximal d’appels du traitement atteint.')
+        if tokens>=budget['max_tokens']:raise JobStopped('Run token limit reached.')
+        if before_call and calls>=budget['max_calls']:raise JobStopped('Run call limit reached.')
 
 
 def invoke(library,row,bridge,prompt,output_schema,model,effort,folder,*,phase,batch=1,total=1,

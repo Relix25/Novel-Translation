@@ -75,7 +75,7 @@ class BatchTests(unittest.TestCase):
         self.assertEqual(generated['token_usage']['last']['inputTokens'],100)
         self.assertEqual(generated['failed_batch']['index'],1)
         self.assertTrue(generated['failed_batch']['result']['response']['segments'])
-        self.assertIn('Lot 1/',result['error'])
+        self.assertIn('Batch 1/',result['error'])
         self.assertNotIn('failed_batch',json.loads(self.lib.snapshot()['jobs'][0]['result']))
 
     def test_identifier_schema_is_scoped_to_each_batch(self):

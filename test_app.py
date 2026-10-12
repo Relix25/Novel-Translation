@@ -254,7 +254,7 @@ for line in sys.stdin:
                         raise AssertionError('Unexpected inference or RPC: ' + method)
 
                 calls = []
-                with self.assertRaisesRegex(ValueError, 'Aucune génération lancée'):
+                with self.assertRaisesRegex(ValueError, 'No generation started'):
                     PersistentBridge().generate('Private manuscript', {}, 'test-luna',
                                                 'medium', Path.cwd())
                 self.assertEqual([method for method, _ in calls], ['thread/start','thread/archive'])
@@ -274,14 +274,14 @@ for line in sys.stdin:
                     raise ValueError('Archive unavailable')
                 raise AssertionError('No inference allowed')
 
-        with self.assertRaisesRegex(ValueError, 'archivage de la session refusé'):
+        with self.assertRaisesRegex(ValueError, 'session archival was refused'):
             RefusingBridge().generate('Private manuscript', {}, 'test-luna','medium',Path.cwd())
 
     def test_api_key_account_rejected_before_inference(self):
         class KeyBridge(CodexBridge):
             def connection(self):
                 return {'connected':False,'auth_type':'apiKey','models':[]}
-        with self.assertRaisesRegex(ValueError, 'Aucun mode clé API'):
+        with self.assertRaisesRegex(ValueError, 'API key authentication is not supported'):
             KeyBridge().generate('test', {}, 'test-luna','medium',Path.cwd())
 
 

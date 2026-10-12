@@ -1,6 +1,7 @@
 """Public, synthetic demo. No database or user manuscript is distributed."""
 
-TITLE = 'Démonstration synthétique — Novel V1'
+TITLE = 'Synthetic demo — Novel V1'
+LEGACY_TITLE = 'Démonstration synthétique — Novel V1'
 CHAPTERS = (
     ('La porte', 'Mira stood before the Azure Gate.\n\nThe gate opened at dawn.',
      ['Mira se tenait devant la Porte azur.', "La porte s'ouvrit à l'aube."],
@@ -16,12 +17,12 @@ CHAPTERS = (
 
 def load(library):
     from novel_v1 import require
-    require(not any(s['title'] == TITLE for s in library.snapshot()['series']),
-            'La démonstration est déjà chargée.')
-    series = library.create(TITLE, 'en', ['fr'], 'Fidèle et fluide')
+    require(not any(s['title'] in (TITLE, LEGACY_TITLE) for s in library.snapshot()['series']),
+            'The demo is already loaded.')
+    series = library.create(TITLE, 'en', ['fr'], 'Faithful and fluent')
     library.set_concept(series, 'azure-gate', {
         'en': {'text': 'Azure Gate', 'first_chapter': 1},
-        'fr': {'text': 'Porte azur', 'first_chapter': 1}}, 'Exemple synthétique')
+        'fr': {'text': 'Porte azur', 'first_chapter': 1}}, 'Synthetic example')
     for number, (title, source, translations, summary) in enumerate(CHAPTERS, 1):
         library.import_source(series, 'en', number, title, source)
         with library.pair(series, 'en', 'fr') as project:
@@ -31,9 +32,9 @@ def load(library):
                 'packet_hash': packet['packet_hash'],
                 'segments': [{'id': s['id'], 'text': text}
                              for s, text in zip(packet['segments'], translations)]})
-            project.review(number, saved['translation_hash'], 'Exemple synthétique relu')
+            project.review(number, saved['translation_hash'], 'Reviewed synthetic example')
             result = project.summary(number, {
                 'chapter': number, 'translation_hash': saved['translation_hash'],
                 'text': summary, 'evidence': [s['id'] for s in packet['segments']]})
-            project.review_summary(number, result['summary_hash'], 'Exemple synthétique relu')
+            project.review_summary(number, result['summary_hash'], 'Reviewed synthetic example')
     return {'series_id': series}

@@ -6,7 +6,7 @@ def split_segments(segments, limit=18000):
     batches, current, size = [], [], 0
     for segment in segments:
         cost = len(encode(segment)) + 80
-        require(cost <= limit, 'Un paragraphe dépasse la taille maximale d’un lot ; découpage manuel requis.')
+        require(cost <= limit, 'A paragraph exceeds the maximum batch size; split it manually.')
         if current and size + cost > limit:
             batches.append(current)
             current, size = [], 0
@@ -32,5 +32,5 @@ def batch_prompt(context, template, instructions, segments, index, total, previo
               'previous_translation is context only; do not repeat it.\nTarget language: ' +
               context['series']['target_language'] + '\nContext: ' + encode(local_context) +
               '\nResponse template: ' + encode(local_template))
-    require(len(prompt) <= 120000, 'Contexte trop volumineux pour ce parcours.')
+    require(len(prompt) <= 120000, 'Context is too large for this workflow.')
     return prompt, local_context

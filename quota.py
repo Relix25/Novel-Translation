@@ -64,4 +64,4 @@ class QuotaCache:
                     window['stale']=bool(self.error or elapsed>120 or (window.get('resets_at') and window['resets_at']<=time.time()))
             return {'buckets':buckets,'available':any(b['windows'] for b in buckets),
                     'updated_at':self.updated_at,'error':self.error,'ordinary_usage_allowed':self.ordinary_usage_allowed,
-                    'scope':'account','note':'Quota du compte partagé avec vos autres activités Codex. Les tokens d’un chapitre ne donnent pas son pourcentage exact de quota.'}
+                    'scope':'account','note':'Account quota is shared with your other Codex activity. Chapter tokens do not determine its exact quota percentage.'}
