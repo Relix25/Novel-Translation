@@ -1,60 +1,74 @@
-# Novel avec Docker
+# Novel with Docker
 
-Le service est publié sur `http://127.0.0.1:8791`. L’image contient le CLI Codex `0.162.0-alpha.17.2`, version conservée pour la compatibilité du protocole App Server. Une mise à jour du CLI doit être testée explicitement.
+The service is local at `http://127.0.0.1:8791`. The image includes Codex CLI
+`0.162.0-alpha.17.2` for App Server compatibility. Test CLI upgrades explicitly.
 
-## Données persistantes
-
-| Ressource | Emplacement | Utilisation |
+| Resource | Location | Purpose |
 | --- | --- | --- |
-| Bibliothèque | `docker-data/library` → `/data/library` | Catalogue, sources archivées, brouillons, décisions, fiches et sauvegardes |
-| Sources | `NOVEL_SOURCES_DIR` → `/imports` | Montage en lecture seule |
-| Connexion Codex | volume `novel_codex-home` → `/home/node/.codex` | Session gérée uniquement par Codex |
-| Choix du dossier | `docker-data/settings.json` ou `.env` | Configuration locale exclue de Git |
+| Library | `docker-data/library` → `/data/library` | Catalogue, sources, drafts, decisions, memory and backups |
+| Sources | `NOVEL_SOURCES_DIR` → `/imports` | Read-only source mount |
+| Codex session | `novel_codex-home` → `/home/node/.codex` | Authentication owned only by Codex |
+| Source selection | `docker-data/settings.json` or `.env` | Private local configuration |
 
-Le nom Compose reste `novel`. Le volume Codex porte un nom explicite indépendant du chemin du dépôt. Pour une autre installation, `NOVEL_CODEX_VOLUME` permet de choisir son volume existant. Ne pas employer `docker compose down --volumes`, supprimer ce volume ou effacer `docker-data` pour une mise à jour.
+The Compose project stays `novel`. The explicit session volume name survives
+checkout moves. `NOVEL_CODEX_VOLUME` selects another existing volume. Never use
+`docker compose down --volumes`, erase `docker-data` or delete that volume for updates.
 
-## Première installation
+## First installation
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File .\docker-novel.ps1 Up -EmptyLibrary
 powershell -NoProfile -ExecutionPolicy Bypass -File .\docker-novel.ps1 Login
 ```
 
-Pour monter un dossier existant, ajouter `-SourcesPath 'C:\Romans\Ma série'` à `Up`. Le lanceur mémorise ce chemin local et le réutilise. Dans Novel, importer depuis `/imports`. Pour utiliser directement Compose, copier `.env.example` vers `.env` et renseigner le chemin réel localement.
+Add `-SourcesPath 'C:\Books\My series'` to `Up` to mount a folder. The launcher
+remembers this private path. Import from `/imports`. For direct Compose use,
+copy `.env.example` to `.env` and set paths locally.
 
-La connexion initiale suit `codex login --device-auth`, puis **Connecter Codex** dans l’interface. Le CLI affiche le code à saisir dans le navigateur ; Novel ne reçoit pas de clé API. Voir la [documentation officielle de l’authentification Codex](https://learn.chatgpt.com/docs/auth). Une connexion déjà présente dans le volume survit au remplacement du conteneur : ne pas refaire Login à chaque mise à jour.
+Initial sign-in uses `codex login --device-auth`, followed by **Connect Codex**.
+Enter the CLI's code in the browser; no API key is required. See
+[official authentication documentation](https://learn.chatgpt.com/docs/auth).
+An existing session survives container replacement; do not Login on every update.
 
-## Importer une sauvegarde
-
-```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .\docker-novel.ps1 Up -BackupPath 'C:\Sauvegardes\Novel\sauvegarde-complete'
-```
-
-La destination `docker-data/library` doit être absente. L’import exige `COMPLETE.json`, vérifie SQLite et les EPUB référencés, puis publie une copie séparée. Les liens symboliques et fichiers d’identifiants sont refusés. Une bibliothèque existante n’est jamais remplacée. `-EmptyLibrary` et `-BackupPath` sont incompatibles.
-
-Sans ces options, un premier démarrage tente une sauvegarde de l’ancienne instance locale sur le port 8790. Si cette instance est fermée, fournir une sauvegarde complète ou choisir explicitement une bibliothèque vide.
-
-## Mettre à jour, arrêter et reprendre
+## Import a complete backup
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .\docker-novel.ps1 Status
-powershell -NoProfile -ExecutionPolicy Bypass -File .\docker-novel.ps1 Up
-powershell -NoProfile -ExecutionPolicy Bypass -File .\docker-novel.ps1 Restart
-powershell -NoProfile -ExecutionPolicy Bypass -File .\docker-novel.ps1 Stop
+powershell -NoProfile -ExecutionPolicy Bypass -File .\docker-novel.ps1 Up -BackupPath 'C:\Backups\Novel\complete-backup'
 ```
 
-`Up` contrôle les travaux avant et après la construction de l’image. Un travail actif empêche le remplacement. Si un conteneur tourne mais que son API est inaccessible, l’opération est refusée ; elle ne suppose pas que la bibliothèque est inactive. `Restart` recharge l’image actuelle, sans reconstruire le code. `Stop` arrête le service. Demander d’abord la pause dans Novel et attendre la fin de l’appel actif.
+The destination library must be absent. Import requires `COMPLETE.json` and checks
+SQLite, referenced EPUBs and hashes. Links and credentials are rejected.
+An existing library is never overwritten. `-EmptyLibrary` and `-BackupPath`
+are mutually exclusive. Without either option, first startup attempts backup
+from the historical local instance on port 8790; if closed, provide a backup
+or explicitly choose an empty library.
 
-Le redémarrage automatique Docker conserve les données ; Novel remet les travaux incomplets en pause et exige une reprise explicite. Consulter les journaux avec `Logs`, mais ne pas les publier sans examen : ils peuvent contenir des informations privées.
+## Update, restart and stop
 
-## Migrer un dépôt existant
+Use launcher actions `Status`, `Up`, `Restart`, `Stop` and `Logs`.
+`Up` checks jobs before and after building; active work prevents replacement.
+A running but unreachable API also blocks update or stop. `Restart` uses the
+existing image instead of rebuilding code. Pause in Novel and wait for the
+active call before restarting or stopping.
 
-1. Vérifier que le conteneur n’a aucun travail actif, puis créer une sauvegarde complète depuis Novel.
-2. Construire l’image depuis le nouveau dépôt pendant que l’ancien conteneur fonctionne encore. Conserver l’identifiant de son image pour le retour arrière.
-3. Arrêter le conteneur, copier toute sa bibliothèque vers le nouveau `docker-data/library` et vérifier les empreintes de fichiers ainsi que l’intégrité SQLite. Copier également les données de l’ancien mode local s’il est utilisé, pendant qu’il est arrêté.
-4. Conserver le même nom Compose, le volume Codex existant et le dossier source en lecture seule. Stocker les chemins personnels uniquement dans `.env` ou `docker-data/settings.json`.
-5. Depuis le nouveau dépôt, lancer `docker compose up --detach --no-build --wait`. Vérifier `/health`, les séries, les brouillons, les validations, les fiches et `docker compose exec novel codex login status`, puis connecter le pont Novel sans générer de texte.
+Docker restart preserves data. Novel pauses incomplete work and requires explicit
+resume. Inspect logs before sharing; they may contain private information.
 
-Conserver l’ancien dossier et sa sauvegarde jusqu’à validation. Après de nouvelles corrections dans la bibliothèque migrée, l’ancienne copie ne contient pas ces modifications : sauvegarder à nouveau avant tout retour arrière. Réactiver l’ancien fichier Compose seulement après avoir arrêté le nouveau service ; le volume Codex peut être réutilisé par une seule installation active.
+## Migration and rollback
 
-Le service utilise un utilisateur non privilégié, des journaux Docker bornés, un contrôle de santé et un délai d’arrêt de trente secondes. Le contexte de construction exclut les données locales ; l’image ne contient aucun manuscrit ni identifiant utilisateur.
+1. Confirm no active work and create a complete backup.
+2. Build from the new checkout while the old service runs. Keep its image ID.
+3. Stop it, copy the entire library and compare file hashes and SQLite integrity.
+   Copy any local-mode library only while its instance is stopped.
+4. Keep the project name, session volume and read-only source mount. Store
+   personal paths only in local configuration.
+5. Run `docker compose up --detach --no-build --wait`. Check health, drafts,
+   approvals, memory and login status; connect the bridge without inference.
+
+Keep the old checkout and backup until verification. New edits are absent from
+the old copy, so back up again before rollback. Stop the new service before
+reactivating the old Compose file. Only one active installation should use the
+session volume.
+
+The image uses a non-root user, bounded logs, health checks and a thirty-second
+stop grace period. Its context includes the prompt policy but no user data.

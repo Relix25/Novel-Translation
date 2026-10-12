@@ -1,5 +1,6 @@
-Décrire le problème et le comportement obtenu.
+Describe the problem and resulting behavior.
 
-Validation : indiquer les tests, la construction frontend et les contrôles Docker pertinents.
+Validation: relevant tests, frontend build, Docker checks and prompt regressions.
 
-Utiliser des exemples synthétiques ; ne pas joindre de manuscrit, base de bibliothèque, journal privé ou identifiant Codex.
+Use synthetic examples. Never attach manuscripts, library databases, personal
+paths, private logs, account readings or Codex credentials.
