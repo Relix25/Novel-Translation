@@ -1,11 +1,11 @@
-FROM node:22-bookworm-slim AS frontend
+FROM node:26-bookworm-slim AS frontend
 WORKDIR /build
 COPY frontend/package.json frontend/package-lock.json ./
 RUN npm ci --no-audit --no-fund
 COPY frontend/ ./
 RUN npm run build
 
-FROM node:22-bookworm-slim AS runtime
+FROM node:26-bookworm-slim AS runtime
 ARG CODEX_VERSION=0.162.0-alpha.17.2
 RUN apt-get update && apt-get install -y --no-install-recommends python3 ca-certificates git \
     && rm -rf /var/lib/apt/lists/* \
