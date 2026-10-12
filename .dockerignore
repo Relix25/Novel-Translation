@@ -17,6 +17,10 @@
 !quota.py
 !source_images.py
 !story_memory.py
+!translation_prompt.py
+!prompts/
+prompts/**
+!prompts/literary_translation.md
 !frontend/
 frontend/**
 !frontend/package.json

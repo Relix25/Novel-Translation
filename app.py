@@ -101,12 +101,12 @@ class App:
     def preflight(self,library,model,effort,review=None):
         if not self.connection.get('connected'):
             require(not library.db.execute("SELECT 1 FROM jobs WHERE state IN ('queued','running')").fetchone(),
-                    'Une génération est en cours ; attendre sa fin avant de reconnecter Codex.')
+                    'Generation is in progress; wait for it to finish before reconnecting Codex.')
             self.connection=self.bridge.connection()
         for choice in [{'model':model,'effort':effort}]+([review] if review else []):
             available=next((m for m in self.connection['models'] if m['model']==choice['model']),None)
             require(self.connection['connected'] and available and any(e['reasoningEffort']==choice['effort'] for e in available.get('supportedReasoningEfforts',[])),
-                    'Modèle ou effort indisponible ; vérifier les préférences.')
+                    'Model or reasoning effort unavailable; check preferences.')
 
     def action(self, value):
         action = value['action']
@@ -115,7 +115,7 @@ class App:
             with self.library() as library:
                 active = library.db.execute("SELECT 1 FROM jobs WHERE state IN ('queued','running')").fetchone()
             if active:
-                require(self.connection.get('connected'), 'Une génération est en cours ; vérifier la connexion après sa fin.')
+                require(self.connection.get('connected'), 'Generation is in progress; check the connection after it finishes.')
                 return {**self.connection, 'cached_while_busy': True}
             self.connection = self.bridge.connection()
             self.refresh_quota()
@@ -123,7 +123,7 @@ class App:
         with self.library() as library:
             if action=='stop-job':
                 row=library.db.execute('SELECT * FROM jobs WHERE id=?',(value['job_id'],)).fetchone()
-                require(row and row['state'] in ('queued','running'),'Ce travail est déjà terminé.')
+                require(row and row['state'] in ('queued','running'),'This job has already finished.')
                 if row['run_id']:
                     from bulk_jobs import control
                     control(library,row['run_id'],'pause')
@@ -182,7 +182,7 @@ class App:
                     return story_memory.add_fact(*args, value['entity'], value['fact'])
                 if action == 'memory-decide':
                     return story_memory.decide(*args, value['fact_id'], value['hash'], value['state'], value['reason'])
-                raise ValueError('Action de mémoire inconnue.')
+                raise ValueError('Unknown memory action.')
             if action == 'generate':
                 review = value.get('review')
                 if value['kind'] == 'memory':
@@ -192,12 +192,12 @@ class App:
                     review = policy(review or {'model': value['model'], 'effort': value['effort'], 'max_passes': 2})
                     if not self.connection.get('connected'):
                         require(not library.db.execute("SELECT 1 FROM jobs WHERE state IN ('queued','running')").fetchone(),
-                                'Une génération est en cours ; utiliser la connexion déjà vérifiée.')
+                                'Generation is in progress; use the connection already verified.')
                         self.connection = self.bridge.connection()
                     available = next((m for m in self.connection['models'] if m['model'] == review['model']), None)
                     require(self.connection['connected'] and available and
                             any(e['reasoningEffort'] == review['effort'] for e in available.get('supportedReasoningEfforts', [])),
-                            'Le relecteur choisi est indisponible ; choisir un modèle dans les préférences.')
+                            'The selected reviewer is unavailable; choose a model in preferences.')
                 job = library.queue_job(series_id, source, target, number, value['kind'], value['model'], value['effort'], review,value.get('limits'))
                 self.executor.submit(self.worker, job)
                 return {'job_id': job}
@@ -205,7 +205,7 @@ class App:
                 if action in ('review', 'review-summary', 'edit', 'restore-version', 'submit'):
                     require(not library.db.execute("SELECT 1 FROM jobs WHERE series=? AND source=? AND target=? AND number=? "
                             "AND state IN ('queued','running')", (series_id,source,target,number)).fetchone(),
-                            'Attendre la fin du travail sur ce chapitre avant de le modifier ou valider.')
+                            'Wait for the job on this chapter to finish before editing or approving it.')
                 if action == 'edit':
                     return project.edit(number,value['hash'],value['packet_hash'],value['edits'])
                 if action == 'restore-version':
@@ -223,7 +223,7 @@ class App:
                 if action == 'export':
                     project.export()
                     return {'url': f'/reader?series={series_id}&source={source}&target={target}'}
-            raise ValueError('Action inconnue.')
+            raise ValueError('Unknown action.')
 
 
 def handler_for(app):
@@ -247,7 +247,7 @@ def handler_for(app):
 
         def do_GET(self):
             if not self.trusted_host():
-                return self.reply({'error': 'Hôte refusé'}, 403)
+                return self.reply({'error': 'Host rejected'}, 403)
             url = urlparse(self.path)
             try:
                 if url.path == '/':
@@ -255,7 +255,7 @@ def handler_for(app):
                 if url.path.startswith('/assets/'):
                     assets = (BASE / 'frontend' / 'dist' / 'assets').resolve()
                     file = (assets / url.path.removeprefix('/assets/')).resolve()
-                    require(file.is_relative_to(assets) and file.is_file(), 'Ressource inconnue.')
+                    require(file.is_relative_to(assets) and file.is_file(), 'Unknown resource.')
                     mime = mimetypes.guess_type(file.name)[0] or 'application/octet-stream'
                     return self.reply(file.read_bytes(), content_type=mime)
                 if url.path == '/favicon.ico':
@@ -267,7 +267,8 @@ def handler_for(app):
                     state.update(csrf=app.token, connection=app.connection,quota=app.quota_snapshot(),
                                  capabilities=['bounded_id_schema', 'activity_metadata', 'compact_summary_context',
                                                'ephemeral_codex_sessions', 'source_image_transcription', 'bounded_quality_review', 'guarded_bulk', 'live_activity',
-                                               'translator_workspace', 'gentle_pause', 'account_quota', 'story_memory'])
+                                               'translator_workspace', 'gentle_pause', 'account_quota', 'story_memory',
+                                               'literary_editorial_translation'])
                     return self.reply(state)
                 query = {key: values[0] for key, values in parse_qs(url.query).items()}
                 if url.path == '/api/memory':
@@ -301,9 +302,9 @@ def handler_for(app):
                 if url.path == '/api/quality':
                     with app.library() as library:
                         row = library.db.execute('SELECT * FROM jobs WHERE id=?', (query['job'],)).fetchone()
-                        require(row and row['result'], 'Rapport inconnu.')
+                        require(row and row['result'], 'Unknown report.')
                         report = json.loads(row['result']).get('quality')
-                        require(report, 'La vérification n’a pas encore commencé.')
+                        require(report, 'The review has not started yet.')
                         with library.pair(row['series'], row['source'], row['target']) as project:
                             report['is_current'] = (project.chapter(row['number'])['translation_hash'] == report['final_hash']
                                                     and project.packet(row['number'])['packet_hash'] == report['packet_hash'])
@@ -330,7 +331,7 @@ def handler_for(app):
                                 return self.reply(chapters)
                             if url.path == '/api/version':
                                 version=project.db.execute('SELECT * FROM translation_versions WHERE number=? AND id=?',(int(query['number']),int(query['id']))).fetchone()
-                                require(version is not None,'Version inconnue.')
+                                require(version is not None,'Unknown version.')
                                 return self.reply({**dict(version),'translation':json.loads(version['translation'])})
                             if url.path == '/api/chapter':
                                 chapter = project.chapter(int(query['number']))
@@ -344,6 +345,8 @@ def handler_for(app):
                                 chapter['current_packet_hash'] = packet['packet_hash']
                                 chapter['glossary'] = packet['glossary']
                                 chapter['versions'] = project.versions(chapter['number'])
+                                chapter['editorial_notes'] = project.editorial_notes(chapter['number'])
+                                chapter['editorial_notes_stale'] = chapter['packet_hash'] != packet['packet_hash']
                                 chapter['warnings'] = []
                                 if chapter['translation']:
                                     try:
@@ -353,7 +356,7 @@ def handler_for(app):
                                 return self.reply(chapter)
                             project.export()
                             return self.reply((project.root / 'reader.html').read_bytes(), content_type='text/html; charset=utf-8')
-                self.reply({'error': 'Page inconnue'}, 404)
+                self.reply({'error': 'Unknown page'}, 404)
             except (ValueError, KeyError, OSError, sqlite3.Error) as error:
                 self.reply({'error': str(error)}, 400)
 
@@ -361,13 +364,13 @@ def handler_for(app):
             origin = getattr(self.server,'public_origin',f'http://127.0.0.1:{self.server.server_port}')
             if (not self.trusted_host() or self.headers.get('Origin') != origin or
                     self.headers.get('X-Novel-CSRF') != app.token):
-                return self.reply({'error': 'Requête locale non autorisée'}, 403)
+                return self.reply({'error': 'Unauthorized local request'}, 403)
             if self.path != '/api/action':
-                return self.reply({'error': 'Action inconnue'}, 404)
+                return self.reply({'error': 'Unknown action'}, 404)
             try:
-                require(self.headers.get('Content-Type', '').startswith('application/json'), 'JSON requis.')
+                require(self.headers.get('Content-Type', '').startswith('application/json'), 'JSON is required.')
                 length = int(self.headers.get('Content-Length', 0))
-                require(0 < length <= 2000000, 'Requête vide ou trop grande.')
+                require(0 < length <= 2000000, 'Request is empty or too large.')
                 value = json.loads(self.rfile.read(length).decode('utf-8'))
                 with app.mutations:
                     result = app.action(value)
@@ -389,7 +392,7 @@ def main():
     if args.public_origin:
         parsed=urlparse(args.public_origin)
         require(parsed.scheme=='http' and parsed.hostname=='127.0.0.1' and parsed.port and not parsed.username and not parsed.password and not parsed.path and not parsed.query and not parsed.fragment,
-                'L’origine publique doit être http://127.0.0.1:PORT.')
+                'The public origin must be http://127.0.0.1:PORT.')
     server = LocalServer((args.bind, args.port), None)
     server.public_origin=args.public_origin or f'http://127.0.0.1:{server.server_port}'
     try:app = App(args.root)

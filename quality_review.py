@@ -11,11 +11,11 @@ CATEGORIES = ['meaning', 'omission', 'addition', 'name', 'number', 'voice', 'sty
 def policy(value):
     if value is None:
         return None
-    require(isinstance(value, dict), 'Configuration de relecture invalide.')
-    require(isinstance(value.get('model'), str) and value['model'], 'Choisir le modèle de relecture.')
-    require(value.get('effort') in ('low', 'medium', 'high', 'xhigh', 'max'), 'Raisonnement de relecture invalide.')
+    require(isinstance(value, dict), 'Invalid review configuration.')
+    require(isinstance(value.get('model'), str) and value['model'], 'Choose a review model.')
+    require(value.get('effort') in ('low', 'medium', 'high', 'xhigh', 'max'), 'Invalid review reasoning effort.')
     require(type(value.get('max_passes', 2)) is int and value.get('max_passes', 2) in (1, 2),
-            'La relecture est limitée à une ou deux passes.')
+            'Review is limited to one or two passes.')
     return {'model': value['model'], 'effort': value['effort'], 'max_passes': value.get('max_passes', 2)}
 
 
@@ -67,7 +67,7 @@ def review_prompt(context, translated, batch, index, total, round_number):
         'Return concise findings, not private reasoning. '
         f'Pass {round_number}, batch {index}/{total}. This is a fresh review of the current text.\n'
         'Context: ' + encode(local) + '\nResponse template: ' + encode(template))
-    require(len(prompt) <= 120000, 'Contexte de relecture trop volumineux.')
+    require(len(prompt) <= 120000, 'Review context is too large.')
     string = {'type': 'string'}
     citation = {'id': {'type': 'string', 'enum': template['checked_ids']},
                 'category': {'type': 'string', 'enum': CATEGORIES}, 'source_quote': string}
@@ -83,31 +83,31 @@ def review_prompt(context, translated, batch, index, total, round_number):
 
 
 def validate(response, template, sources, translated):
-    require(isinstance(response, dict), 'Rapport de relecture absent.')
+    require(isinstance(response, dict), 'Review report is missing.')
     for key in ('chapter', 'source_hash', 'packet_hash', 'translation_hash', 'checked_ids'):
-        require(response.get(key) == template[key], f'Relecture : {key} ne correspond pas au texte envoyé.')
-    require(isinstance(response.get('note'), str), 'Note de relecture absente.')
+        require(response.get(key) == template[key], f'Review: {key} does not match the submitted text.')
+    require(isinstance(response.get('note'), str), 'Review note is missing.')
     by_id = {s['id']: s['text'] for s in translated}
     seen = set()
     for group in ('corrections', 'issues'):
         items = response.get(group)
-        require(isinstance(items, list), 'Liste de relecture absente : ' + group)
+        require(isinstance(items, list), 'Review list is missing: ' + group)
         for item in items:
-            require(isinstance(item, dict) and item.get('id') in template['checked_ids'], 'Citation hors du lot.')
-            require(item.get('category') in CATEGORIES, 'Catégorie de relecture invalide.')
+            require(isinstance(item, dict) and item.get('id') in template['checked_ids'], 'Quotation is outside the batch.')
+            require(item.get('category') in CATEGORIES, 'Invalid review category.')
             quote = item.get('source_quote')
             require(isinstance(quote, str) and quote.strip() and quote in sources[item['id']],
-                    'La preuve de relecture doit citer exactement la source.')
+                    'Review evidence must quote the source exactly.')
             explanation = item.get('reason' if group == 'corrections' else 'detail')
-            require(isinstance(explanation, str) and explanation.strip(), 'Décision non justifiée.')
+            require(isinstance(explanation, str) and explanation.strip(), 'Decision is not justified.')
             if group == 'corrections':
-                require(item['id'] not in seen, 'Correction dupliquée.')
+                require(item['id'] not in seen, 'Duplicate correction.')
                 seen.add(item['id'])
-                require(item.get('before') == by_id[item['id']], 'Correction fondée sur une autre traduction.')
+                require(item.get('before') == by_id[item['id']], 'Correction refers to a different translation.')
                 require(isinstance(item.get('after'), str) and item['after'].strip()
-                        and item['after'].strip() != item['before'], 'Correction vide ou inchangée.')
+                        and item['after'].strip() != item['before'], 'Correction is empty or unchanged.')
     expected = 'uncertain' if response['issues'] else 'corrected' if response['corrections'] else 'clean'
-    require(response.get('verdict') == expected, 'Verdict incohérent avec les corrections et incertitudes.')
+    require(response.get('verdict') == expected, 'Verdict is inconsistent with the corrections and uncertainties.')
     return {item['id']: item['after'].strip() for item in response['corrections']}
 
 
@@ -142,9 +142,9 @@ def run(library, row, bridge, context, generated, checkpoint):
         checkpoint(generated)
     def unchanged(project):
         require(project.packet(row['number'])['packet_hash'] == context['packet_hash'],
-                'Le contexte a changé pendant la relecture ; relancer explicitement avec le nouveau contexte.')
+                'Context changed during review; explicitly restart with the new context.')
         require(project.chapter(row['number'])['translation_hash'] == expected_hash,
-                'La traduction a changé pendant la relecture ; aucune correction ne sera écrasée.')
+                'Translation changed during review; no edits will be overwritten.')
     persist()
     try:
         for index, batch in enumerate(batches, 1):
@@ -195,7 +195,7 @@ def run(library, row, bridge, context, generated, checkpoint):
                 report['unresolved'].extend(final['issues'])
                 # Last-pass edits have not been checked in another pass.
                 report['unresolved'].extend({'id': c['id'], 'category': c['category'],
-                    'source_quote': c['source_quote'], 'detail': 'Dernière correction à confirmer : ' + c['reason']}
+                    'source_quote': c['source_quote'], 'detail': 'Final correction requires confirmation: ' + c['reason']}
                     for c in final['corrections'])
             report['unresolved_count'] = len(report['unresolved'])
             progress(library,row['id'],paragraphs_done=sum(len(b) for b in batches[:index]),activity='validated')

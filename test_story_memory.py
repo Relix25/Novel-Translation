@@ -122,7 +122,7 @@ class MemoryTests(unittest.TestCase):
         self.assertEqual(memory.view(*self.args(),'ada')['pending'],1)
         self.assertEqual(memory.view(*self.args(),'ada')['summary'],[])
         self.assertTrue(memory.analysis_status(*self.args())['completed'])
-        with self.assertRaisesRegex(ValueError,'déjà analysé'):self.job()
+        with self.assertRaisesRegex(ValueError,'already analysed'):self.job()
         call=self.lib.db.execute('SELECT * FROM inference_calls WHERE job=?',(job,)).fetchone()
         self.assertEqual(call['phase'],'memory');self.assertEqual(json.loads(call['usage'])['inputTokens'],10)
 
@@ -176,7 +176,7 @@ class MemoryTests(unittest.TestCase):
             self.assertEqual(memory.view(*self.args(),'ada')['summary'],[])
             self.assertTrue(memory.view(*self.args(),'ada')['facts'][0]['stale'])
             self.assertEqual(memory.past_context(*self.args(2),'Ada'),[])
-            with self.assertRaisesRegex(ValueError,'source a changé'):self.approve(f)
+            with self.assertRaisesRegex(ValueError,'source changed'):self.approve(f)
 
     def test_deduplication_persistence_and_backup(self):
         f=self.add();self.approve(f);self.add()

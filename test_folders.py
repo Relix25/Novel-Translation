@@ -23,7 +23,7 @@ class FolderTests(unittest.TestCase):
     def add(self, series=None):
         p = preview_folder(self.folder)
         return self.lib.import_folder(str(self.folder), p['fingerprint'], 'en', series,
-                                      'Série synthétique', ['fr', 'es'], 'Fidèle')
+                                      'Series synthétique', ['fr', 'es'], 'Fidèle')
 
     def test_multifile_import_restart_idempotency_and_project_isolation(self):
         preview = preview_folder(self.folder)
@@ -45,16 +45,16 @@ class FolderTests(unittest.TestCase):
         original = self.add()['series_id']
         before = preview_folder(self.folder)
         (self.folder / '01 — Gate.txt').write_text('Changed!', encoding='utf-8')
-        with self.assertRaisesRegex(ValueError, 'changé'):
+        with self.assertRaisesRegex(ValueError, 'changed'):
             self.lib.import_folder(str(self.folder), before['fingerprint'], 'en', original)
         (self.folder / '00 — New.txt').write_text('Zero', encoding='utf-8')
-        with self.assertRaisesRegex(ValueError, 'ambigu'):
+        with self.assertRaisesRegex(ValueError, '(?i)ambiguous'):
             preview_folder(self.folder)
         (self.folder / '00 — New.txt').unlink()
         # A second project has chapter 2 only. Chapter 1 must roll back when chapter 2 conflicts.
         second = self.lib.create('Rollback synthétique', 'en', ['fr'], 'Fidèle')
         self.lib.import_source(second, 'en', 2, '02 — Map', 'An immutable original.')
-        with self.assertRaisesRegex(ValueError, 'annulé'):
+        with self.assertRaisesRegex(ValueError, 'cancelled'):
             self.add(second)
         self.assertEqual(len(self.lib.snapshot()['series'][1]['sources']), 1)
         self.assertEqual(self.lib.source(second, 'en', 2)['source'], 'An immutable original.')
@@ -63,14 +63,14 @@ class FolderTests(unittest.TestCase):
 
     def test_duplicate_number_invalid_encoding_empty_and_nested_folder(self):
         (self.folder / '02 — Duplicate.txt').write_text('Duplicate', encoding='utf-8')
-        with self.assertRaisesRegex(ValueError, 'ambigu'):
+        with self.assertRaisesRegex(ValueError, '(?i)ambiguous'):
             preview_folder(self.folder)
         (self.folder / '02 — Duplicate.txt').unlink()
         (self.folder / '03.txt').write_bytes(b'\xff')
         with self.assertRaisesRegex(ValueError, 'UTF-8'):
             preview_folder(self.folder)
         (self.folder / '03.txt').write_text('', encoding='utf-8')
-        with self.assertRaisesRegex(ValueError, 'vide'):
+        with self.assertRaisesRegex(ValueError, '(?i)empty'):
             preview_folder(self.folder)
         (self.folder / '03.txt').unlink()
         sub = self.folder / 'Arc 2'

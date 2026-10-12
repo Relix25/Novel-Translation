@@ -13,7 +13,7 @@ from source_images import render_source, require_readable
 
 def language(value):
     require(isinstance(value, str) and re.fullmatch(r'[a-z]{2,3}(?:-[a-z0-9]{2,8})*', value),
-            'Utiliser un code langue : en, fr, zh, ja, pt-br…')
+            'Use a language code: en, fr, zh, ja, pt-br…')
     return value
 
 
@@ -129,10 +129,10 @@ class Library:
 
     def create(self, title, source_language, targets, style):
         source_language = language(source_language)
-        require(isinstance(targets, list) and targets, 'Choisir au moins une langue cible.')
+        require(isinstance(targets, list) and targets, 'Choose at least one target language.')
         targets = sorted(set(language(t) for t in targets))
-        require(source_language not in targets, 'La langue cible doit différer de la source.')
-        require(title.strip() and style.strip(), 'Titre et style requis.')
+        require(source_language not in targets, 'The target language must differ from the source.')
+        require(title.strip() and style.strip(), 'Title and style are required.')
         series_id = uuid.uuid4().hex
         with self.db:
             self.db.execute('INSERT INTO series VALUES(?,?,?,?,?)',
@@ -141,7 +141,7 @@ class Library:
 
     def series(self, series_id):
         row = self.db.execute('SELECT * FROM series WHERE id=?', (series_id,)).fetchone()
-        require(row is not None, 'Série inconnue.')
+        require(row is not None, 'Unknown series.')
         value = dict(row)
         value['target_languages'] = json.loads(value['target_languages'])
         return value
@@ -149,7 +149,7 @@ class Library:
     def add_target(self, series_id, target):
         series = self.series(series_id)
         target = language(target)
-        require(target != series['source_language'], 'Choisir une autre langue que la source principale.')
+        require(target != series['source_language'], 'Choose a language other than the primary source.')
         with self.db:
             self.db.execute('UPDATE series SET target_languages=? WHERE id=?',
                             (encode(sorted(set(series['target_languages'] + [target]))), series_id))
@@ -158,14 +158,14 @@ class Library:
         self.series(series_id)
         language(source_language)
         positive(number)
-        require(isinstance(source, str) and source.strip() and title.strip(), 'Chapitre et titre requis.')
+        require(isinstance(source, str) and source.strip() and title.strip(), 'Chapter number and title are required.')
         with self.db:
             self.db.execute('BEGIN IMMEDIATE')
             old = self.db.execute('SELECT * FROM sources WHERE series=? AND language=? AND number=?',
                                  (series_id, source_language, number)).fetchone()
             if old:
                 require(old['hash'] == digest(source) and old['title'] == title,
-                        'Ce chapitre existe avec un autre contenu ; original conservé.')
+                        'This chapter already exists with different content; the original is preserved.')
                 return {'unchanged': True}
             self.db.execute('INSERT INTO sources VALUES(?,?,?,?,?,?)',
                             (series_id, source_language, number, title, source, digest(source)))
@@ -175,7 +175,7 @@ class Library:
         positive(number)
         row = self.db.execute('SELECT * FROM sources WHERE series=? AND language=? AND number=?',
                              (series_id, source_language, number)).fetchone()
-        require(row is not None, 'Chapitre source absent dans cette langue.')
+        require(row is not None, 'The source chapter is missing in this language.')
         return dict(row)
 
     def origins(self, series_id, source_language):
@@ -202,7 +202,7 @@ class Library:
 
     def glyph_image(self, series_id, image_hash):
         import zipfile
-        require(isinstance(image_hash,str) and re.fullmatch('[a-f0-9]{64}',image_hash), 'Empreinte d’image invalide.')
+        require(isinstance(image_hash,str) and re.fullmatch('[a-f0-9]{64}',image_hash), 'Invalid image hash.')
         self.series(series_id)
         for row in self.db.execute('SELECT metadata FROM origins WHERE series=?',(series_id,)):
             metadata = json.loads(row['metadata'])
@@ -210,19 +210,19 @@ class Library:
             if image:
                 with zipfile.ZipFile(self.root / 'books' / (metadata['book_hash']+'.epub')) as archive:
                     info = archive.getinfo(image['image_resource'])
-                    require(info.file_size<=1_000_000,'Image trop volumineuse.')
+                    require(info.file_size<=1_000_000,'Image is too large.')
                     raw = archive.read(info)
-                require(hashlib.sha256(raw).hexdigest()==image_hash,'L’image archivée a changé.')
+                require(hashlib.sha256(raw).hexdigest()==image_hash,'The archived image has changed.')
                 mime = ('image/png' if raw.startswith(b'\x89PNG\r\n\x1a\n') else 'image/jpeg' if raw.startswith(b'\xff\xd8\xff')
                         else 'image/gif' if raw.startswith((b'GIF87a',b'GIF89a')) else 'image/webp' if raw[:4]==b'RIFF' and raw[8:12]==b'WEBP' else None)
-                require(mime is not None,'Format d’image non pris en charge pour l’aperçu.')
+                require(mime is not None,'Image format is not supported for preview.')
                 return raw,mime
-        raise ValueError('Image source inconnue dans cette série.')
+        raise ValueError('Unknown source image in this series.')
 
     def set_glyph(self, series_id, image_hash, text, reason):
-        require(any(g['image_hash']==image_hash for g in self.glyphs(series_id)), 'Image source inconnue.')
-        require(isinstance(text,str) and len(text)<=20 and not any(ord(c)<32 for c in text), 'Transcrire au maximum 20 caractères ; laisser vide seulement pour une image décorative.')
-        require(isinstance(reason,str) and reason.strip(),'Motif de vérification requis.')
+        require(any(g['image_hash']==image_hash for g in self.glyphs(series_id)), 'Unknown source image.')
+        require(isinstance(text,str) and len(text)<=20 and not any(ord(c)<32 for c in text), 'Transcribe at most 20 characters; leave blank only for a decorative image.')
+        require(isinstance(reason,str) and reason.strip(),'A review reason is required.')
         with self.db:
             self.db.execute('INSERT INTO glyph_readings VALUES(?,?,?,?) ON CONFLICT(series,image_hash) DO UPDATE SET text=excluded.text,reason=excluded.reason',
                             (series_id,image_hash,text,reason.strip()))
@@ -232,18 +232,18 @@ class Library:
     def refresh_source_images(self, series_id):
         from epubs import read_epub
         self.series(series_id)
-        require(not self.db.execute("SELECT 1 FROM jobs WHERE series=? AND state IN ('queued','running')",(series_id,)).fetchone(), 'Attendre la fin des travaux avant de relire les EPUB.')
+        require(not self.db.execute("SELECT 1 FROM jobs WHERE series=? AND state IN ('queued','running')",(series_id,)).fetchone(), 'Wait for all jobs to finish before checking EPUBs.')
         books, updates, occurrences = {}, [], 0
         for row in self.db.execute('SELECT language,number,metadata FROM origins WHERE series=?',(series_id,)):
             metadata = json.loads(row['metadata'])
             book_hash = metadata['book_hash']
             if book_hash not in books:
                 book = read_epub(self.root / 'books' / (book_hash+'.epub'))
-                require(book['hash']==book_hash,'Archive EPUB modifiée.')
+                require(book['hash']==book_hash,'The EPUB archive has changed.')
                 books[book_hash] = {c['locator']:c for c in book['chapters']}
             chapter = books[book_hash][metadata['locator']]
             original = self.source(series_id,row['language'],row['number'])
-            require(chapter['hash']==original['hash'] and chapter['source']==original['source'], 'La nouvelle extraction diffère de la source immuable ; migration manuelle requise.')
+            require(chapter['hash']==original['hash'] and chapter['source']==original['source'], 'The new extraction differs from the immutable source; manual migration is required.')
             metadata['source_images'] = chapter['source_images']
             occurrences += len(chapter['source_images'])
             updates.append((encode(metadata),series_id,row['language'],row['number']))
@@ -269,18 +269,18 @@ class Library:
     def import_folder(self, path, fingerprint, source_language, series_id=None, title='', targets=None, style=''):
         from folders import scan_folder
         scanned = scan_folder(path)
-        require(scanned['fingerprint'] == fingerprint, 'Le dossier a changé depuis l’aperçu. Analyser de nouveau.')
+        require(scanned['fingerprint'] == fingerprint, 'The folder changed since the preview. Scan it again.')
         source_language = language(source_language)
         require(not scanned.get('detected_language') or
                 scanned['detected_language'].split('-')[0] == source_language.split('-')[0],
-                'La langue choisie ne correspond pas à celle déclarée dans les EPUB.')
+                'The selected language does not match the language declared in the EPUBs.')
         if series_id:
             self.series(series_id)
         else:
-            require(title.strip() and style.strip(), 'Titre et style requis.')
-            require(isinstance(targets, list) and targets, 'Choisir une langue cible.')
+            require(title.strip() and style.strip(), 'Title and style are required.')
+            require(isinstance(targets, list) and targets, 'Choose a target language.')
             targets = sorted(set(language(t) for t in targets))
-            require(source_language not in targets, 'La cible doit différer de la source.')
+            require(source_language not in targets, 'The target must differ from the source.')
         imported, unchanged = 0, 0
         with self.db:
             self.db.execute('BEGIN IMMEDIATE')
@@ -295,7 +295,7 @@ class Library:
                     if origin:
                         chapter['number'] = origin['number']
                         require(json.loads(origin['metadata'])['book_hash'] == chapter['book_hash'],
-                                'Un EPUB a changé : original conservé, import entier annulé.')
+                                'An EPUB changed: the original is preserved and the entire import was cancelled.')
                     else:
                         chapter['number'] = self.db.execute('SELECT coalesce(max(number),0)+1 FROM sources WHERE series=? AND language=?',
                                                             (series_id, source_language)).fetchone()[0]
@@ -303,7 +303,7 @@ class Library:
                                      (series_id, source_language, chapter['number'])).fetchone()
                 if old:
                     require(old['hash'] == chapter['hash'] and old['title'] == chapter['title'],
-                            f"Chapitre {chapter['number']} modifié : original conservé, import entier annulé.")
+                            f"Chapter {chapter['number']} changed: the original is preserved and the entire import was cancelled.")
                     unchanged += 1
                 else:
                     self.db.execute('INSERT INTO sources VALUES(?,?,?,?,?,?)',
@@ -324,13 +324,13 @@ class Library:
             for volume in scanned.get('volumes', []):
                 original = Path(scanned['path']) / volume['file']
                 require(not original.is_symlink() and original.resolve().is_relative_to(Path(scanned['path'])),
-                        'Source EPUB déplacée hors du dossier ; analyser de nouveau.')
+                        'The EPUB source moved outside the folder; scan again.')
                 raw = original.read_bytes()
-                require(hashlib.sha256(raw).hexdigest() == volume['hash'], 'Un EPUB a changé pendant l’import ; analyser de nouveau.')
+                require(hashlib.sha256(raw).hexdigest() == volume['hash'], 'An EPUB changed during import; scan again.')
                 stored = self.root / 'books' / (volume['hash'] + '.epub')
                 stored.parent.mkdir(exist_ok=True)
                 if stored.exists():
-                    require(hashlib.sha256(stored.read_bytes()).hexdigest() == volume['hash'], 'Archive EPUB locale incohérente.')
+                    require(hashlib.sha256(stored.read_bytes()).hexdigest() == volume['hash'], 'Local EPUB archive hash mismatch.')
                 else:
                     from tempfile import NamedTemporaryFile
                     import os
@@ -341,7 +341,7 @@ class Library:
                     try:
                         os.link(temporary.name, stored)
                     except FileExistsError:
-                        require(hashlib.sha256(stored.read_bytes()).hexdigest() == volume['hash'], 'Archive EPUB locale incohérente.')
+                        require(hashlib.sha256(stored.read_bytes()).hexdigest() == volume['hash'], 'Local EPUB archive hash mismatch.')
                     finally:
                         Path(temporary.name).unlink()
             self.db.execute('INSERT INTO folders(series,language,path,fingerprint) VALUES(?,?,?,?) '
@@ -360,16 +360,16 @@ class Library:
 
     def set_concept(self, series_id, concept, forms, note='', kind=None):
         self.series(series_id)
-        require(isinstance(concept, str) and re.fullmatch(r'[\w-]{1,80}', concept), 'Identifiant de concept requis.')
-        require(isinstance(forms, dict) and len(forms) >= 1, 'Ajouter les formes du concept par langue.')
+        require(isinstance(concept, str) and re.fullmatch(r'[\w-]{1,80}', concept), 'A concept identifier is required.')
+        require(isinstance(forms, dict) and len(forms) >= 1, 'Add concept forms for each language.')
         if kind is not None:
             from story_memory import KINDS
-            require(kind in KINDS, 'Catégorie de fiche invalide.')
+            require(kind in KINDS, 'Invalid entity category.')
         values = []
         for code, form in forms.items():
             language(code)
             require(isinstance(form, dict) and isinstance(form.get('text'), str) and form['text'].strip(),
-                    'Une forme doit contenir un texte.')
+                    'A form must contain text.')
             positive(form.get('first_chapter'))
             values.append((series_id, concept, code, form['text'].strip(), form['first_chapter']))
         with self.db:
@@ -401,7 +401,7 @@ class Library:
         series = self.series(series_id)
         language(source)
         language(target)
-        require(target in series['target_languages'] and source != target, 'Paire de langues non activée.')
+        require(target in series['target_languages'] and source != target, 'Language pair is not enabled.')
         folder = self.root / 'series' / series_id / f'{source}--{target}'
         project = Pair(folder, self, series_id, source, target)
         try:
@@ -410,14 +410,14 @@ class Library:
             if not project.config():
                 project.init(series['title'], source, target, series['style'])
             else:
-                require(project.config() == expected, 'Configuration de la paire incohérente.')
+                require(project.config() == expected, 'Language pair configuration is inconsistent.')
             existing = {r['number']: r for r in project.db.execute('SELECT number,title,source_hash FROM chapters')}
             for row in self.db.execute('SELECT * FROM sources WHERE series=? AND language=? ORDER BY number',
                                        (series_id, source)):
                 old = existing.get(row['number'])
                 if old:
                     require(old['title'] == row['title'] and old['source_hash'] == row['hash'],
-                            'Original incohérent entre catalogue et paire de langues.')
+                            'Source differs between the catalogue and the language pair.')
                 else:
                     project.import_chapter(row['number'], row['title'], row['source'])
             self.reconcile_pair(project)
@@ -505,33 +505,33 @@ class Library:
                 if result.get('quality'):
                     report = result['quality']
                     report.update(status='interrupted', token_usage_complete=False,
-                                  error='Application interrompue ; relancer explicitement la vérification.')
+                                  error='Application interrupted; explicitly restart the review.')
                     destination = (self.root / report['audit_file']).resolve()
-                    require(destination.is_relative_to((self.root / 'reviews').resolve()), 'Chemin de rapport invalide.')
+                    require(destination.is_relative_to((self.root / 'reviews').resolve()), 'Invalid report path.')
                     atomic_write(destination, encode(report))
                     self.db.execute('UPDATE jobs SET result=? WHERE id=?', (encode(result),row['id']))
-            self.db.execute("UPDATE jobs SET state='interrupted',error='Application interrompue ; aucune relance automatique.' "
+            self.db.execute("UPDATE jobs SET state='interrupted',error='Application interrupted; no automatic retry.' "
                             "WHERE state IN ('queued','running')")
-            self.db.execute("UPDATE inference_calls SET state='interrupted',error='Application interrompue ; consommation partielle possible.' WHERE state='running'")
-            self.db.execute("UPDATE bulk_runs SET state='paused',error='Application interrompue ; reprise explicite nécessaire.' WHERE state IN ('queued','running','pause_requested')")
+            self.db.execute("UPDATE inference_calls SET state='interrupted',error='Application interrupted; usage may be partial.' WHERE state='running'")
+            self.db.execute("UPDATE bulk_runs SET state='paused',error='Application interrupted; explicit resume is required.' WHERE state IN ('queued','running','pause_requested')")
 
     def backup(self):
         require(not self.db.execute("SELECT 1 FROM jobs WHERE state IN ('queued','running')").fetchone(),
-                'Attendre la fin des travaux avant de sauvegarder la bibliothèque.')
+                'Wait for all jobs to finish before backing up the library.')
         require(not self.db.execute("SELECT 1 FROM bulk_runs WHERE state IN ('queued','running','pause_requested')").fetchone(),
-                'Mettre le traitement en série en pause avant de sauvegarder la bibliothèque.')
+                'Pause the batch run before backing up the library.')
         folder = self.root / 'backups' / uuid.uuid4().hex
         folder.mkdir(parents=True)
         try:
             with sqlite3.connect(folder / 'library.sqlite') as destination:
                 self.db.backup(destination)
-                require(destination.execute('PRAGMA integrity_check').fetchone()[0] == 'ok', 'Sauvegarde invalide.')
+                require(destination.execute('PRAGMA integrity_check').fetchone()[0] == 'ok', 'Invalid backup.')
             destination.close()
             hashes = {json.loads(r['metadata'])['book_hash'] for r in self.db.execute('SELECT metadata FROM origins')}
             for book_hash in hashes:
-                require(re.fullmatch(r'[a-f0-9]{64}', book_hash), 'Empreinte EPUB invalide.')
+                require(re.fullmatch(r'[a-f0-9]{64}', book_hash), 'Invalid EPUB hash.')
                 original = self.root / 'books' / (book_hash + '.epub')
-                require(hashlib.sha256(original.read_bytes()).hexdigest() == book_hash, 'Archive EPUB locale incohérente.')
+                require(hashlib.sha256(original.read_bytes()).hexdigest() == book_hash, 'Local EPUB archive hash mismatch.')
                 target = folder / 'books' / original.name
                 target.parent.mkdir(exist_ok=True)
                 shutil.copyfile(original, target)
@@ -543,7 +543,7 @@ class Library:
                 copied = sqlite3.connect(target)
                 try:
                     original.backup(copied)
-                    require(copied.execute('PRAGMA integrity_check').fetchone()[0] == 'ok', 'Sauvegarde de série invalide.')
+                    require(copied.execute('PRAGMA integrity_check').fetchone()[0] == 'ok', 'Invalid series backup.')
                 finally:
                     copied.close()
                     original.close()
@@ -558,12 +558,12 @@ class Library:
     def queue_job(self, series_id, source, target, number, kind, model, effort, review=None, limits_config=None, run_id=None, position=None):
         from quality_review import policy
         from job_tracking import limits
-        require(kind in ('translation', 'summary', 'quality_review', 'memory'), 'Type de travail inconnu.')
+        require(kind in ('translation', 'summary', 'quality_review', 'memory'), 'Unknown job type.')
         review = policy(review)
-        require(kind != 'summary' or review is None, 'Les résumés ont une validation séparée.')
-        require(kind != 'memory' or review is None, 'Les fiches ont une validation séparée.')
+        require(kind != 'summary' or review is None, 'Summaries require separate approval.')
+        require(kind != 'memory' or review is None, 'Entity observations require separate approval.')
         if kind == 'memory':
-            require(effort == 'low' and 'luna' in model.lower(), 'Les fiches utilisent Luna Low ; aucun changement automatique de modèle.')
+            require(effort == 'low' and 'luna' in model.lower(), 'Entity analysis uses Luna Low; no automatic model substitution.')
         if kind == 'quality_review':
             review = policy(review or {'model': model, 'effort': effort, 'max_passes': 2})
             model, effort = review['model'], review['effort']
@@ -575,23 +575,23 @@ class Library:
             options = {'review': review, 'expected_hash': chapter['translation_hash'], 'packet_hash': packet['packet_hash']}
             options['limits'] = limits(limits_config)
             if kind == 'quality_review':
-                require(chapter['translation'], 'Traduire le chapitre avant sa vérification.')
+                require(chapter['translation'], 'Translate the chapter before reviewing it.')
             if kind == 'summary':
-                require(chapter['state'] == 'approved', 'Relire et approuver la traduction avant le résumé.')
+                require(chapter['state'] == 'approved', 'Review and approve the translation before creating its summary.')
             if kind == 'memory':
                 from story_memory import analysis_context
                 _, options['memory_key'] = analysis_context(self, series_id, source, target, number)
                 require(not self.db.execute('SELECT 1 FROM memory_scans WHERE key=?', (options['memory_key'],)).fetchone(),
-                        'Chapitre déjà analysé ; aucun appel supplémentaire nécessaire.')
-        require(isinstance(model, str) and model and isinstance(effort, str) and effort, 'Modèle et effort requis.')
+                        'Chapter already analysed; no additional call is needed.')
+        require(isinstance(model, str) and model and isinstance(effort, str) and effort, 'Model and reasoning effort are required.')
         job = uuid.uuid4().hex
         with self.db:
             self.db.execute('BEGIN IMMEDIATE')
             require(not self.db.execute("SELECT 1 FROM jobs WHERE series=? AND source=? AND target=? AND number=? "
                     "AND state IN ('queued','running')", (series_id, source, target, number)).fetchone(),
-                    'Un travail est déjà en cours sur ce chapitre.')
+                    'This chapter already has an active job.')
             require(run_id or not self.db.execute("SELECT 1 FROM bulk_runs r JOIN bulk_items i ON i.run=r.id WHERE r.series=? AND r.source=? AND r.target=? AND i.number=? AND i.state!='done' AND r.state IN ('queued','running','pause_requested','paused')",(series_id,source,target,number)).fetchone(),
-                    'Ce chapitre appartient déjà à un traitement en série ; reprendre ou annuler ce traitement.')
+                    'This chapter already belongs to a batch run; resume or cancel that run.')
             self.db.execute('INSERT INTO jobs(id,series,source,target,number,kind,model,effort,state,options,run_id) '
                             'VALUES(?,?,?,?,?,?,?,?,?,?,?)', (job, series_id, source, target, number, kind, model, effort, 'queued', encode(options),run_id))
             if run_id:
@@ -619,9 +619,9 @@ class Library:
                 return
             with self.pair(row['series'], row['source'], row['target']) as project:
                 require(not options.get('packet_hash') or options['packet_hash'] == project.packet(row['number'])['packet_hash'],
-                        'Le contexte a changé depuis la mise en file ; relancer explicitement.')
+                        'Context changed after queuing; explicitly restart the job.')
                 require('expected_hash' not in options or options['expected_hash'] == project.chapter(row['number'])['translation_hash'],
-                        'La traduction a changé depuis la mise en file ; relancer explicitement.')
+                        'Translation changed after queuing; explicitly restart the job.')
                 if row['kind'] in ('translation', 'quality_review'):
                     prepared = project.prepare(row['number'])
                 else:
@@ -634,13 +634,13 @@ class Library:
                 if row['kind'] == 'translation':
                     from batches import batch_prompt, split_segments
                     batches = split_segments(context['segments'])
-                    translated, records, usage = [], [], {}
+                    translated, records, usage, editorial_notes = [], [], {}, []
                     for index, batch in enumerate(batches, 1):
                         check(self,row,limits(options.get('limits')))
                         require('expected_hash' not in options or options['expected_hash'] == project.chapter(row['number'])['translation_hash'],
-                                'La traduction a changé ; traitement interrompu avant le prochain lot.')
+                                'Translation changed; stopping before the next batch.')
                         require(project.packet(row['number'])['packet_hash'] == context['packet_hash'],
-                                'Le contexte a changé ; traitement interrompu avant le prochain lot.')
+                                'Context changed; stopping before the next batch.')
                         prompt, local_context = batch_prompt(context, template, instructions, batch,
                                                              index, len(batches), translated)
                         key = digest(prompt)
@@ -664,16 +664,17 @@ class Library:
                                          'token_usage': {'last': usage} if usage else None,
                                          'failed_batch': {'index': index, 'result': result,
                                                           'expected_ids': [segment['id'] for segment in batch]}}
-                            raise ValueError(f'Lot {index}/{len(batches)} : {error}') from error
+                            raise ValueError(f'Batch {index}/{len(batches)}: {error}') from error
                         with self.db:
                             self.db.execute('INSERT OR REPLACE INTO translation_batches VALUES(?,?,?,?,?)',
                                             (key, row['model'], row['effort'], encode(result), job))
                         translated.extend(normalized)
+                        editorial_notes.extend(result['response'].get('editorial_notes', []))
                         progress(self,job,phase='translation',batch=index,batch_total=len(batches),paragraphs_done=len(translated),
                                  paragraphs_total=len(context['segments']),activity='cached' if cached else 'validated')
                         records.append({'index': index, 'cached': bool(cached), 'segments': len(batch),
                                         'token_usage': result.get('token_usage')})
-                        generated = {'response': {**template, 'segments': translated}, 'model': row['model'],
+                        generated = {'response': {**template, 'segments': translated, 'editorial_notes': editorial_notes}, 'model': row['model'],
                                      'effort': row['effort'], 'batches': records, 'batch_total': len(batches),
                                      'token_usage': {'last': usage} if usage else None}
                         with self.db:
@@ -681,13 +682,13 @@ class Library:
                                             (encode(generated), job))
                 elif row['kind'] == 'quality_review':
                     require(project.chapter(row['number'])['translation_hash'] == options['expected_hash'],
-                            'La traduction a changé depuis la mise en file.')
+                            'Translation changed after queuing.')
                     generated = {'response': {**template, 'segments': json.loads(project.chapter(row['number'])['translation'])},
                                  'model': row['model'], 'effort': row['effort']}
                 else:
                     prompt, local_context = summary_prompt(context, template, instructions,
                                                           row['target'], project.packet(row['number'])['glossary'])
-                    require(len(prompt) <= 120000, 'Contexte du résumé trop volumineux.')
+                    require(len(prompt) <= 120000, 'Summary context is too large.')
                     generated = invoke(self,row,bridge,prompt, response_schema(row['kind'], local_context),
                                        row['model'], row['effort'], folder,phase='summary',paragraphs=len(context['source_segments']))
             # Fresh reads after generation detect glossary changes made while the job ran.
@@ -731,6 +732,9 @@ def response_schema(kind, context=None):
         properties.update(source_hash={'type': 'string'}, packet_hash={'type': 'string'},
             segments={'type': 'array', 'items': {'type': 'object', 'additionalProperties': False,
                       'properties': {'id': {'type': 'string'}, 'text': {'type': 'string'}}, 'required': ['id', 'text']}})
+        from translation_prompt import note_schema
+        properties['editorial_notes'] = note_schema([s['id'] for s in context['segments']] if context else None)
+        properties['blocked_reason'] = {'type': 'string'}
         if context is not None:
             # Constrain copying at generation time; Python still checks order and completeness.
             properties['chapter']['enum'] = [context['chapter']]

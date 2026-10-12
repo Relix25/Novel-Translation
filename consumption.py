@@ -69,7 +69,7 @@ def report(library,series,source,target):
         c['total']=c['input']+c['output']
         if not any(o['credits'] is not None for o in c['operations']):c['credits']=None
     return {'chapters':rows,'rates_date':RATES_DATE,'rates_url':RATES_URL,
-            'note':'Crédits Codex Standard estimés. Ce ne sont ni des euros facturés ni un pourcentage du quota inclus. Le raisonnement est déjà compris dans les tokens de sortie. Cache non communiqué : tarif sans remise.'}
+            'note':'Estimated Codex Standard credits. These are not billed currency or a percentage of the included quota. Reasoning is already included in output tokens. Cache usage unavailable: undiscounted rate.'}
 
 
 def estimate(characters,model,review,chapters=1):
@@ -82,4 +82,4 @@ def estimate(characters,model,review,chapters=1):
     unit=sum(.7*r[0]+.3*r[2] for r in rates)/len(models)/1_000_000 if len(rates)==len(models) else None
     return {'tokens_low':low,'tokens_high':high,'credits_low':low*unit if unit is not None else None,
             'credits_high':high*unit if unit is not None else None,'rates_date':RATES_DATE,'rates_url':RATES_URL,
-            'basis':'Scénarios indicatifs : caractères source et provision de contexte par chapitre ; 70 % entrée / 30 % sortie, sans remise de cache, répartition égale entre modèles. Le contexte réel, le raisonnement et les corrections peuvent dépasser cette fourchette. Ce calcul n’est pas calibré sur vos romans. Seuls les plafonds arrêtent le traitement.'}
+            'basis':'Illustrative scenarios: source characters and context allowance per chapter; 70% input / 30% output, no cache discount, equal allocation between models. Actual context, reasoning and corrections may exceed this range. This estimate is not calibrated to your books. Only limits stop the run.'}

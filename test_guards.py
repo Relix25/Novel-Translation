@@ -50,7 +50,7 @@ class GuardTests(unittest.TestCase):
         bridge=BatchBridge();work(self.lib,run,bridge)
         self.assertEqual(bridge.calls,1)
         self.assertEqual(self.run_row(run)['state'],'paused')
-        with self.assertRaisesRegex(ValueError,'Plafond'):control(self.lib,run,'resume')
+        with self.assertRaisesRegex(ValueError,'limit'):control(self.lib,run,'resume')
         control(self.lib,run,'resume',{'max_calls':5,'max_tokens':1000})
         work(self.lib,run,bridge)
         self.assertEqual(bridge.calls,3)
@@ -62,7 +62,7 @@ class GuardTests(unittest.TestCase):
                 result=super().generate(*args);result['token_usage']=None;return result
         run=self.start();bridge=Unknown();work(self.lib,run,bridge)
         self.assertEqual(bridge.calls,1)
-        self.assertIn('inconnue',self.run_row(run)['error'])
+        self.assertIn('unknown',self.run_row(run)['error'])
         control(self.lib,run,'resume');retry=BatchBridge();work(self.lib,run,retry)
         self.assertEqual(retry.calls,2)
         self.assertEqual(self.run_row(run)['state'],'completed')
@@ -102,13 +102,13 @@ class GuardTests(unittest.TestCase):
         self.assertEqual([c['number'] for c in selected['chapters']],[2,1])
         job=self.lib.queue_job(self.sid,'en','fr',2,'translation','gpt-6-luna','high');self.lib.run_job(job,BatchBridge())
         self.assertEqual([c['number'] for c in preview(self.lib,self.value)['chapters']],[3,1])
-        with self.assertRaisesRegex(ValueError,'existe|possède'):preview(self.lib,{**self.value,'numbers':[2]})
-        with self.assertRaisesRegex(ValueError,'changé'):create(self.lib,{**self.value,'fingerprint':plan['fingerprint']})
+        with self.assertRaisesRegex(ValueError,'already has'):preview(self.lib,{**self.value,'numbers':[2]})
+        with self.assertRaisesRegex(ValueError,'changed'):create(self.lib,{**self.value,'fingerprint':plan['fingerprint']})
 
     def test_duplicate_runs_and_individual_jobs_are_rejected_until_cancelled(self):
         run=self.start()
         with self.assertRaises(ValueError):self.start()
-        with self.assertRaisesRegex(ValueError,'traitement en série'):
+        with self.assertRaisesRegex(ValueError,'batch run'):
             self.lib.queue_job(self.sid,'en','fr',1,'translation','gpt-6-luna','high')
         control(self.lib,run,'pause')
         with self.assertRaises(ValueError):self.start()
@@ -138,7 +138,7 @@ class GuardTests(unittest.TestCase):
         job=self.lib.queue_job(self.sid,'en','fr',1,'translation','gpt-6-luna','high',limits_config={'max_tokens':1000})
         bridge=Excess();self.lib.run_job(job,bridge)
         row=self.lib.db.execute('SELECT state,error FROM jobs WHERE id=?',(job,)).fetchone()
-        self.assertEqual(row['state'],'interrupted');self.assertIn('tokens',row['error'])
+        self.assertEqual(row['state'],'interrupted');self.assertIn('token limit',row['error'])
         self.assertEqual(spent(self.lib.db,job=job),(1050,1))
 
     def test_stop_flag_interrupts_running_call_without_model_mutex(self):
@@ -190,7 +190,7 @@ class GuardTests(unittest.TestCase):
         self.assertIn(job,[j['id'] for j in self.lib.activity()['jobs']])
         with self.lib.db:self.lib.db.execute("UPDATE jobs SET state='failed' WHERE id=?",(job,))
         run=self.start()
-        with self.assertRaisesRegex(ValueError,'pause'):self.lib.backup()
+        with self.assertRaisesRegex(ValueError,'(?i)pause'):self.lib.backup()
         control(self.lib,run,'pause')
         backup=self.lib.backup()['database_backup']
         restored=Library(backup)
@@ -233,7 +233,7 @@ class ConcurrencyTests(unittest.TestCase):
                 with app.library() as lib:
                     sid=lib.create('Synthetic','en',['fr'],'Faithful');lib.import_source(sid,'en',1,'One','Synthetic source.')
                     job=lib.queue_job(sid,'en','fr',1,'translation','fake','high')
-                with self.assertRaisesRegex(ValueError,'déjà ouverte'):App(root,BatchBridge())
+                with self.assertRaisesRegex(ValueError,'already open'):App(root,BatchBridge())
                 with app.library() as lib:self.assertEqual(lib.db.execute('SELECT state FROM jobs WHERE id=?',(job,)).fetchone()[0],'queued')
             finally:app.close()
             restarted=App(root,BatchBridge())

@@ -26,7 +26,7 @@ class BootstrapTests(unittest.TestCase):
                 db.execute('INSERT INTO origins VALUES(?,?,?,?,?)',
                            (series, 'en', 1, 'synthetic.epub', json.dumps({'book_hash': 'a' * 64})))
                 db.commit()
-            with self.assertRaisesRegex(ValueError, 'absente'):
+            with self.assertRaisesRegex(ValueError, 'missing'):
                 bootstrap(backup, root / 'destination')
             self.assertFalse((root / 'destination').exists())
 
@@ -35,6 +35,6 @@ class BootstrapTests(unittest.TestCase):
             root = Path(folder)
             backup, _ = self.backup(root)
             (backup / 'auth.json').write_text('{}', encoding='utf-8')
-            with self.assertRaisesRegex(ValueError, 'identifiants'):
+            with self.assertRaisesRegex(ValueError, 'credentials'):
                 bootstrap(backup, root / 'destination')
             self.assertFalse((root / 'destination').exists())

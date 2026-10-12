@@ -141,7 +141,7 @@ class QualityTests(unittest.TestCase):
                 packet = p.packet(1)
                 p.submit(1, {**packet, 'segments':[{'id':s['id'],'text':'Correction humaine.'} for s in packet['segments']]})
         row, result = self.run_job(ReviewBridge(['correct'], hook=edit))
-        self.assertIn('traduction a changé', row['error'])
+        self.assertIn('Translation changed', row['error'])
         self.assertEqual(result['quality']['status'], 'interrupted')
         self.assertTrue(all(s['text']=='Correction humaine.' for s in json.loads(self.chapter()['translation'])))
 
@@ -149,7 +149,7 @@ class QualityTests(unittest.TestCase):
         def edit():
             self.lib.set_concept(self.sid,'door',{'en':{'text':'door','first_chapter':1},'fr':{'text':'huis','first_chapter':1}})
         row, result = self.run_job(ReviewBridge(['correct'], hook=edit))
-        self.assertIn('contexte a changé', row['error'])
+        self.assertIn('Context changed', row['error'])
         self.assertNotIn('Correction.', self.chapter()['translation'])
 
     def test_queue_pins_input_and_rejects_duplicate_or_unbounded_work(self):
@@ -181,12 +181,12 @@ class QualityTests(unittest.TestCase):
         bridge=Unavailable()
         app=App(self.lib.root,bridge)
         try:
-            with self.assertRaisesRegex(ValueError,'relecteur choisi est indisponible'):
+            with self.assertRaisesRegex(ValueError,'selected reviewer is unavailable'):
                 app.action(dict(action='generate',series_id=self.sid,source='en',target='fr',number=1,
                                 kind='translation',model='test-luna',effort='high',review=self.policy))
             self.assertEqual(self.lib.db.execute('SELECT count(*) FROM jobs').fetchone()[0],0)
             self.lib.queue_job(self.sid,'en','fr',1,'translation','test-luna','high',self.policy)
-            with self.assertRaisesRegex(ValueError,'Attendre la fin'):
+            with self.assertRaisesRegex(ValueError,'Wait for'):
                 app.action(dict(action='review',series_id=self.sid,source='en',target='fr',number=1,hash='x',reason='test'))
             self.assertEqual(bridge.calls,[])
         finally:

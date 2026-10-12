@@ -14,6 +14,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends python3 ca-cert
     && chown -R node:node /home/node/.codex /data /imports
 WORKDIR /opt/novel
 COPY *.py ./
+COPY prompts/ ./prompts/
 COPY --from=frontend /build/dist ./frontend/dist/
 ENV PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1
 USER node

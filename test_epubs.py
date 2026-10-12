@@ -90,14 +90,14 @@ class EpubTests(unittest.TestCase):
             before = lib.source(sid,'ja',1)
             with lib.pair(sid,'ja','fr') as pair:
                 original_ids = [s['id'] for s in pair.packet(1)['segments']]
-            with self.assertRaisesRegex(ValueError,'caractères en image'):
+            with self.assertRaisesRegex(ValueError,'Image characters'):
                 lib.queue_job(sid,'ja','fr',1,'translation','test-luna','medium')
             self.assertEqual(lib.db.execute('SELECT count(*) FROM jobs').fetchone()[0],0)
             image_hash = images[0]['image_hash']
             raw,mime = lib.glyph_image(sid,image_hash)
             self.assertEqual(mime,'image/png')
             self.assertEqual(__import__('hashlib').sha256(raw).hexdigest(),image_hash)
-            with self.assertRaisesRegex(ValueError,'inconnue'):
+            with self.assertRaisesRegex(ValueError,'Unknown'):
                 lib.set_glyph(sid,'0'*64,'字','Synthetic reason')
             lib.set_glyph(sid,image_hash,'𠮟','Synthetic transcription decision')
             with lib.pair(sid,'ja','fr') as pair:
@@ -210,13 +210,13 @@ class EpubTests(unittest.TestCase):
         lib = Library(self.root / 'data')
         try:
             p = preview_folder(self.folder)
-            with self.assertRaisesRegex(ValueError, 'langue'):
+            with self.assertRaisesRegex(ValueError, 'language'):
                 lib.import_folder(self.folder, p['fingerprint'], 'en', title='Bad', targets=['fr'], style='Faithful')
             sid = lib.import_folder(self.folder, p['fingerprint'], 'ja', title='Good', targets=['fr'], style='Faithful')['series_id']
             fixture(self.folder / 'Volume 1.epub')
             fixture(self.book, changed=True)
             p = preview_folder(self.folder)
-            with self.assertRaisesRegex(ValueError, 'annulé'):
+            with self.assertRaisesRegex(ValueError, 'cancelled'):
                 lib.import_folder(self.folder, p['fingerprint'], 'ja', sid)
             self.assertEqual(len(lib.origins(sid, 'ja')), 2)
             self.assertIn('Continuation.', lib.source(sid, 'ja', 1)['source'])
@@ -225,7 +225,7 @@ class EpubTests(unittest.TestCase):
 
     def test_mixed_formats_are_rejected_before_import(self):
         (self.folder / '01.txt').write_text('Synthetic text', encoding='utf-8')
-        with self.assertRaisesRegex(ValueError, 'Séparer'):
+        with self.assertRaisesRegex(ValueError, 'separate folders'):
             preview_folder(self.folder)
 
     def test_earlier_volume_cannot_receive_later_glossary_or_summary(self):

@@ -18,7 +18,7 @@ class InstanceLock:
                 fcntl.flock(self.file.fileno(),fcntl.LOCK_EX|fcntl.LOCK_NB)
         except OSError as error:
             self.file.close()
-            raise ValueError('Cette bibliothèque est déjà ouverte dans Novel. Utiliser la fenêtre existante ou fermer cette instance avant de relancer.') from error
+            raise ValueError('This library is already open in Novel. Use the existing window or close that instance before restarting.') from error
 
     def close(self):
         if self.file.closed:return
