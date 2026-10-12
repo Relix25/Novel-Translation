@@ -1,0 +1,22 @@
+name: Signaler un problème
+description: Décrire un problème reproductible avec des données synthétiques.
+body:
+  - type: markdown
+    attributes:
+      value: Ne joignez aucun manuscrit, base SQLite, chemin personnel, relevé de compte ou identifiant Codex. Reproduisez le problème avec la démonstration synthétique.
+  - type: textarea
+    id: steps
+    attributes:
+      label: Étapes de reproduction
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Résultat attendu et résultat observé
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Version Novel, système et mode de lancement
