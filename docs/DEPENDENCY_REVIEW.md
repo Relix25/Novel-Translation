@@ -1,4 +1,14 @@
-# Initial Dependabot review — 12 October 2026
+# Dependency review
+
+## Cleanup check — 14 October 2026
+
+The original four Dependabot PRs remain open and now target dev. The cleanup
+preserves locked runtime versions and the production profile; it does not merge
+the major Node/Vite changes. Development-only Ruff, Prettier and Oxlint enforce
+the new checks, with pip added to Dependabot's dev targets. The full local npm
+audit reports no vulnerabilities. Main retains the same six required CI contexts.
+
+## Initial review — 12 October 2026
 
 Four initial PRs target main and predate the Windows backup test correction.
 Their frontend, Linux and Docker jobs passed; both Windows jobs failed on the

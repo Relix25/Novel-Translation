@@ -12,6 +12,9 @@
 - English software prose and documentation.
 - Literary fidelity/naturalness policy with separate editorial proposals.
 - Protected main, dev and development-targeted dependency updates.
+- Readable source, centralized frontend transport and enforced development checks.
+- Separate user and LLM engineering guides with code-level lifecycle contracts.
+- Isolated benchmark tooling and escaped, data-driven English reports.
 
 ## Future work
 
