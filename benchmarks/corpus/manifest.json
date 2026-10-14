@@ -1,0 +1,66 @@
+{
+  "title": "Universal Declaration of Human Rights — Preamble",
+  "upstream_commit": "1cd98069ab360cf9d296719ce585b6dad2acd0c7",
+  "retrieved_at": "2026-10-13",
+  "provenance": "OHCHR translations, archived by UDHR in Unicode and distributed in Unicode ICU. Direct OHCHR retrieval returned HTTP 403. Current official PDFs have not been byte-verified.",
+  "normalization": "Select inclusive source lines; trim indentation; join nonempty lines with one space. No words changed. One full-preamble segment avoids falsely aligning differently grouped paragraphs.",
+  "notice": "Original OHCHR notices preserved in raw files. ICU licensing stored alongside corpus. Local benchmarking; no publication.",
+  "limitations": [
+    "Formal legal prose, not fiction.",
+    "Widely known text: training contamination is possible.",
+    "Archive differs in punctuation and paragraphing across languages.",
+    "Backtranslation is a robustness diagnostic, not independent proof of fidelity."
+  ],
+  "languages": {
+    "en": {
+      "file": "en.txt",
+      "sha256": "2d354d8d902f5c953cbb034f11fbf3dc4d91ebb5edc8bca46f2564e7298a183e",
+      "start_line": 9,
+      "end_line": 18,
+      "extracted_sha256": "7f2a8c81ce988872efd3a2a96a648d3b85228a25bfd6c9ffb50952153ce34bd0",
+      "characters": 1992,
+      "whitespace_words": 320,
+      "archive_url": "https://raw.githubusercontent.com/unicode-org/icu/1cd98069ab360cf9d296719ce585b6dad2acd0c7/icu4j/perf-tests/data/udhr/udhr_eng.txt"
+    },
+    "fr": {
+      "file": "fr.txt",
+      "sha256": "580174ad2573fb33e741c027359b552da155ac72b61f6463e1f6aced675be22a",
+      "start_line": 9,
+      "end_line": 17,
+      "extracted_sha256": "5df53729c0e32313a9c948d25c23264b8f0190ac91261c6f21c25c2e43b27f4e",
+      "characters": 2212,
+      "whitespace_words": 349,
+      "archive_url": "https://raw.githubusercontent.com/unicode-org/icu/1cd98069ab360cf9d296719ce585b6dad2acd0c7/icu4j/perf-tests/data/udhr/udhr_fra.txt"
+    },
+    "zh": {
+      "file": "zh.txt",
+      "sha256": "3963b114548c3a974ea01c072a725451212ab178584447e504c7daa91d904c8d",
+      "start_line": 12,
+      "end_line": 19,
+      "extracted_sha256": "081d46d3e0ede9ca5b513e8c12ecf0f369abaa41e9fa4c749c6d670d0503c1a0",
+      "characters": 470,
+      "whitespace_words": 8,
+      "archive_url": "https://raw.githubusercontent.com/unicode-org/icu/1cd98069ab360cf9d296719ce585b6dad2acd0c7/icu4j/perf-tests/data/udhr/udhr_cmn_hans.txt"
+    },
+    "ko": {
+      "file": "ko.txt",
+      "sha256": "399f3f1104c0514440e3045f7039f4b756c07453af0453e943bd790b6c6d7bd6",
+      "start_line": 9,
+      "end_line": 18,
+      "extracted_sha256": "5594cd8dacee926cf5eb089efbc7a87ca2d9d051a40c5287e934b72718ca5e49",
+      "characters": 774,
+      "whitespace_words": 181,
+      "archive_url": "https://raw.githubusercontent.com/unicode-org/icu/1cd98069ab360cf9d296719ce585b6dad2acd0c7/icu4j/perf-tests/data/udhr/udhr_kor.txt"
+    },
+    "ja": {
+      "file": "ja.txt",
+      "sha256": "338b70501ec1bea9b934ff1558d58829b5889b1ebad7530bd16b0be20d56fc0f",
+      "start_line": 11,
+      "end_line": 18,
+      "extracted_sha256": "952e61e92b956b7367a25667b162250fffaa77252c91f9e5014cafa2b0a82774",
+      "characters": 636,
+      "whitespace_words": 8,
+      "archive_url": "https://raw.githubusercontent.com/unicode-org/icu/1cd98069ab360cf9d296719ce585b6dad2acd0c7/icu4j/perf-tests/data/udhr/udhr_jpn.txt"
+    }
+  }
+}
