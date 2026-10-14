@@ -12,6 +12,11 @@ earlier summaries, approved observations and source segments. At most two prior
 translated paragraphs supply continuity; they are never translated again.
 No unsupplied chapter or example is implicitly available.
 
+The shared policy takes supplied JSON inputs, not an instruction to read files
+inside a tool-refusing generation turn. CLI operators read the prepared context
+and template before providing them; automatic batches embed their scoped JSON
+directly. A wording change in this wrapper also changes the prompt cache key.
+
 The priorities are completeness/meaning, literary effect, scoped continuity,
 idiomatic form and simple wording. Ambiguity, voices, viewpoint, pacing,
 intensity and cultural setting survive. Missing text is never invented.
