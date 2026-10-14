@@ -1,29 +1,44 @@
 """Synthetic fixtures only. No real novel or translation is included.
-Run: python -m unittest -v test_novel_v1.py
+Run: python -m unittest discover -s tests -p test_novel_v1.py -v
 """
+
 import copy
 import json
-from pathlib import Path
-import sqlite3
 import shutil
+import sqlite3
 import subprocess
 import sys
-from unittest.mock import patch
 import tempfile
 import unittest
-from novel_v1 import Novel, digest
+from pathlib import Path
+from unittest.mock import patch
+
+from novel_v1 import Novel
 
 
 class WorkflowTests(unittest.TestCase):
     def test_cli_unicode_json_when_redirected(self):
         with tempfile.TemporaryDirectory() as folder:
             result = subprocess.run(
-                [sys.executable, str(Path(__file__).with_name('novel_v1.py')),
-                 '--root', folder, 'init', '--title', '小说 — Épreuve',
-                 '--source-language', '中文', '--target-language', 'français',
-                 '--style', 'Fidèle'], capture_output=True)
+                [
+                    sys.executable,
+                    str(Path(__file__).resolve().parents[1] / "novel_v1.py"),
+                    "--root",
+                    folder,
+                    "init",
+                    "--title",
+                    "小说 — Épreuve",
+                    "--source-language",
+                    "中文",
+                    "--target-language",
+                    "français",
+                    "--style",
+                    "Fidèle",
+                ],
+                capture_output=True,
+            )
             self.assertEqual(result.returncode, 0, result.stderr)
-            self.assertEqual(json.loads(result.stdout.decode('utf-8'))['title'], '小说 — Épreuve')
+            self.assertEqual(json.loads(result.stdout.decode("utf-8"))["title"], "小说 — Épreuve")
 
     def setUp(self):
         self.temporary = tempfile.TemporaryDirectory()
@@ -39,10 +54,15 @@ class WorkflowTests(unittest.TestCase):
 
     def response(self, number=1):
         packet = self.novel.packet(number)
-        return {"chapter": number, "source_hash": packet["source_hash"],
-                "packet_hash": packet["packet_hash"],
-                "segments": [{"id": item["id"], "text": "Texte de test " + item["source"]}
-                             for item in packet["segments"]]}
+        return {
+            "chapter": number,
+            "source_hash": packet["source_hash"],
+            "packet_hash": packet["packet_hash"],
+            "segments": [
+                {"id": item["id"], "text": "Texte de test " + item["source"]}
+                for item in packet["segments"]
+            ],
+        }
 
     def approved(self):
         response = self.response()
@@ -92,8 +112,12 @@ class WorkflowTests(unittest.TestCase):
         response = self.response(2)
         saved = self.novel.submit(2, response)
         self.novel.review(2, saved["translation_hash"], "Future synthetic review")
-        summary = {"chapter": 2, "translation_hash": saved["translation_hash"],
-                   "text": "Future synthetic fact", "evidence": [response["segments"][0]["id"]]}
+        summary = {
+            "chapter": 2,
+            "translation_hash": saved["translation_hash"],
+            "text": "Future synthetic fact",
+            "evidence": [response["segments"][0]["id"]],
+        }
         saved_summary = self.novel.summary(2, summary)
         self.novel.review_summary(2, saved_summary["summary_hash"], "Future summary review")
         self.assertEqual(self.novel.packet(1)["previous_summaries"], [])
@@ -122,23 +146,35 @@ class WorkflowTests(unittest.TestCase):
         _, result = self.approved()
         chapter = self.novel.chapter(1)
         segment_id = json.loads(chapter["segments"])[0]["id"]
-        response = {"chapter": 1, "translation_hash": result["translation_hash"],
-                    "text": "Résumé synthétique réservé au test.", "evidence": ["future:invalid"]}
+        response = {
+            "chapter": 1,
+            "translation_hash": result["translation_hash"],
+            "text": "Résumé synthétique réservé au test.",
+            "evidence": ["future:invalid"],
+        }
         with self.assertRaises(ValueError):
             self.novel.summary(1, response)
         response["evidence"] = [segment_id]
         saved = self.novel.summary(1, response)
         path = self.novel.export()["file"]
-        self.assertNotIn("Résumé synthétique réservé au test.", Path(path).read_text(encoding="utf-8"))
+        self.assertNotIn(
+            "Résumé synthétique réservé au test.", Path(path).read_text(encoding="utf-8")
+        )
         self.novel.review_summary(1, saved["summary_hash"], "Evidence checked; no later facts")
-        self.assertIn("Résumé synthétique réservé au test.",
-                      Path(self.novel.export()["file"]).read_text(encoding="utf-8"))
+        self.assertIn(
+            "Résumé synthétique réservé au test.",
+            Path(self.novel.export()["file"]).read_text(encoding="utf-8"),
+        )
 
     def test_translation_update_invalidates_summary(self):
         response, result = self.approved()
         segment_id = response["segments"][0]["id"]
-        summary = {"chapter": 1, "translation_hash": result["translation_hash"],
-                   "text": "Synthetic summary", "evidence": [segment_id]}
+        summary = {
+            "chapter": 1,
+            "translation_hash": result["translation_hash"],
+            "text": "Synthetic summary",
+            "evidence": [segment_id],
+        }
         saved = self.novel.summary(1, summary)
         self.novel.review_summary(1, saved["summary_hash"], "Synthetic review")
         response["segments"][0]["text"] += " changed"
@@ -173,8 +209,9 @@ class WorkflowTests(unittest.TestCase):
             self.assertEqual(restored.chapter(1)["source"], self.source)
             self.assertEqual(restored.chapter(1)["translation_hash"], saved["translation_hash"])
             self.assertEqual(restored.chapter(1)["state"], "approved")
-            self.assertIn("&lt;script&gt;",
-                          Path(restored.export()["file"]).read_text(encoding="utf-8"))
+            self.assertIn(
+                "&lt;script&gt;", Path(restored.export()["file"]).read_text(encoding="utf-8")
+            )
             self.assertEqual(restored.packet(1), self.novel.packet(1))
         finally:
             restored.close()
@@ -184,8 +221,10 @@ class WorkflowTests(unittest.TestCase):
         concurrent = (Path(self.temporary.name) / "concurrent.sqlite").resolve()
         concurrent.write_bytes(b"Existing backup must survive")
         original_exists = Path.exists
+
         def stale_exists(path):
             return False if path == concurrent else original_exists(path)
+
         with patch.object(Path, "exists", stale_exists):
             with self.assertRaises(FileExistsError):
                 self.novel.backup(concurrent)
@@ -205,4 +244,3 @@ class WorkflowTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-
