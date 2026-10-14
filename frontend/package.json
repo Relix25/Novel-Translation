@@ -5,16 +5,22 @@
   "type": "module",
   "scripts": {
     "build": "vite build --configLoader native",
-    "dev": "vite --configLoader native --host 127.0.0.1"
+    "dev": "vite build --watch --configLoader native",
+    "lint": "oxlint src tests --deny-warnings",
+    "format": "prettier --write src tests vite.config.js index.html tsconfig.json package.json .prettierrc.json .oxlintrc.json",
+    "format:check": "prettier --check src tests vite.config.js index.html tsconfig.json package.json .prettierrc.json .oxlintrc.json",
+    "test": "node --test tests/*.test.js"
   },
   "dependencies": {
     "@mantine/core": "^9.7.1",
     "@mantine/hooks": "^9.7.1",
     "@tabler/icons-react": "^3.0.0",
-    "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0"
   },
   "devDependencies": {
+    "oxlint": "1.88.0",
+    "prettier": "3.9.10",
     "vite": "^7.0.0"
   }
 }

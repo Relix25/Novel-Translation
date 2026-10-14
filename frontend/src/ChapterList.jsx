@@ -1,37 +1,421 @@
-import React,{useEffect,useMemo,useRef,useState} from 'react';
-import {Alert,Badge,Button,Checkbox,Group,Pagination,Paper,Progress,ScrollArea,Select,SimpleGrid,Stack,Table,Text,TextInput,Title} from '@mantine/core';
-import {IconArrowRight,IconBook2,IconPlayerPlay,IconSearch} from '@tabler/icons-react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import {
+  Badge,
+  Button,
+  Checkbox,
+  Group,
+  Pagination,
+  Paper,
+  Progress,
+  ScrollArea,
+  Select,
+  SimpleGrid,
+  Stack,
+  Table,
+  Text,
+  TextInput,
+  Title,
+} from '@mantine/core';
+import { IconArrowRight, IconBook2, IconPlayerPlay, IconSearch } from '@tabler/icons-react';
 
-const labels={imported:'To translate',missing:'To translate',draft:'To review',approved:'Approved',needs_review:'Needs review'};
-const narrative=new Set(['chapter','intermission','interlude','epilogue','prologue']);
-export default function ChapterList({chapters,storageKey,jobs,runs,onOpen,onPrepare,onImport,canPrepare}){
- const [selected,setSelected]=useState(()=>{try{return JSON.parse(localStorage.getItem(storageKey)||'[]');}catch{return [];}});
- const [search,setSearch]=useState(''),[status,setStatus]=useState('all'),[volume,setVolume]=useState('all'),[sections,setSections]=useState('story'),[page,setPage]=useState(1),[from,setFrom]=useState(null),[to,setTo]=useState(null);
- const anchor=useRef(null);
- const active=useMemo(()=>new Set([...jobs.filter(j=>['queued','running'].includes(j.state)).map(j=>j.number),...runs.filter(r=>!['completed','cancelled'].includes(r.state)).flatMap(r=>r.items.filter(i=>i.state!=='done').map(i=>i.number))]),[jobs,runs]);
- const eligible=c=>!c.translation_hash&&!active.has(c.number);
- const available=chapters.filter(eligible),allowed=new Set(available.map(c=>c.number));
- const picked=selected.filter(n=>allowed.has(n));
- useEffect(()=>{localStorage.setItem(storageKey,JSON.stringify(selected));},[storageKey,selected]);
- const filtered=chapters.filter(c=>(`${c.number} ${c.title}`).toLowerCase().includes(search.toLowerCase())&&(status==='all'||c.state===status)&&(volume==='all'||String(c.origin?.volume)===volume)&&(sections==='all'||!c.origin||narrative.has(c.origin.kind)));
- useEffect(()=>{setPage(p=>Math.min(p,Math.max(1,Math.ceil(filtered.length/25))));},[filtered.length]);
- const visibleEligible=filtered.filter(eligible).map(c=>c.number),pickedSet=new Set(picked);
- const volumes=[...new Set(chapters.filter(c=>c.origin?.volume!=null).map(c=>c.origin.volume))].sort((a,b)=>a-b);
- const approved=chapters.filter(c=>c.state==='approved').length,reviewable=chapters.filter(c=>c.translation_hash&&c.state!=='approved');
- const rangeOptions=chapters.map(c=>({value:String(c.number),label:`${c.origin?.volume?`V${c.origin.volume} · `:''}${c.number} — ${c.title}`}));
- const changeFilter=(setter,value)=>{setter(value);setPage(1);};
- function selectMany(numbers,checked=true){setSelected(previous=>checked?[...new Set([...previous,...numbers])]:previous.filter(n=>!numbers.includes(n)));}
- function toggle(c,checked,shift){let range=[c.number];if(shift&&anchor.current!=null){const a=filtered.findIndex(x=>x.number===anchor.current),b=filtered.findIndex(x=>x.number===c.number);if(a>=0)range=filtered.slice(Math.min(a,b),Math.max(a,b)+1).filter(eligible).map(x=>x.number);}selectMany(range,checked);anchor.current=c.number;}
- function selectRange(){const a=chapters.findIndex(c=>String(c.number)===from),b=chapters.findIndex(c=>String(c.number)===to);if(a<0||b<0)return;selectMany(chapters.slice(Math.min(a,b),Math.max(a,b)+1).filter(eligible).filter(c=>sections==='all'||!c.origin||narrative.has(c.origin.kind)).map(c=>c.number));}
- const allVisible=visibleEligible.length>0&&visibleEligible.every(n=>pickedSet.has(n));
- return <Stack gap="lg">
-  <SimpleGrid cols={{base:1,sm:3}}><Paper withBorder p="md"><Text size="xs" c="dimmed">TO TRANSLATE</Text><Title order={2}>{available.length}</Title><Text size="xs" c="dimmed">Chapters available for a new batch</Text></Paper><Paper withBorder p="md"><Group justify="space-between"><div><Text size="xs" c="dimmed">TO REVIEW</Text><Title order={2}>{reviewable.length}</Title></div><Button variant="light" disabled={!reviewable.length} onClick={()=>onOpen(reviewable[0].number)} rightSection={<IconArrowRight size={15}/>}>Resume</Button></Group></Paper><Paper withBorder p="md"><Text size="xs" c="dimmed">APPROVED</Text><Title order={2}>{approved}<Text component="span" size="sm" c="dimmed"> / {chapters.length}</Text></Title><Progress mt="xs" color="teal" value={chapters.length?100*approved/chapters.length:0}/></Paper></SimpleGrid>
-  <Paper withBorder p="lg"><Group justify="space-between" mb="lg"><div><Title order={3}>Chapters and volumes</Title><Text size="sm" c="dimmed" mt={4}>Choose a batch, then open its translations in the workspace.</Text></div><Button variant="default" size="sm" onClick={onImport}>Import a chapter</Button></Group>
-   <Group mb="md" align="flex-end"><TextInput label="Search" placeholder="Title or number…" leftSection={<IconSearch size={16}/>} value={search} onChange={e=>changeFilter(setSearch,e.target.value)}/><Select label="Status" w={150} allowDeselect={false} data={[{value:'all',label:'All statuses'},...Object.entries(labels).filter(([k])=>k!=='missing').map(([value,label])=>({value,label}))]} value={status} onChange={v=>changeFilter(setStatus,v)}/>{volumes.length>0&&<Select label="Volume" w={150} allowDeselect={false} data={[{value:'all',label:'All volumes'},...volumes.map(v=>({value:String(v),label:`Volume ${v}`}))]} value={volume} onChange={v=>changeFilter(setVolume,v)}/>}<Select label="Sections" w={180} allowDeselect={false} data={[{value:'story',label:'Story and interludes'},{value:'all',label:'All sections'}]} value={sections} onChange={v=>changeFilter(setSections,v)}/></Group>
-   <div className="selection-tools"><Group align="flex-end"><Select label="From chapter" placeholder="Range start" searchable clearable data={rangeOptions} value={from} onChange={setFrom} w={220}/><Select label="To chapter" placeholder="Range end" searchable clearable data={rangeOptions} value={to} onChange={setTo} w={220}/><Button variant="default" disabled={!from||!to} onClick={selectRange}>Add range</Button><Button variant="subtle" disabled={!visibleEligible.length} onClick={()=>selectMany(visibleEligible)}>Select the {visibleEligible.length} available chapters shown</Button></Group><Text size="xs" c="dimmed" mt="xs">Selection covers every page in this filter. Shift-click selects a range. Existing translations and queued chapters are protected.</Text></div>
-   <ScrollArea><Table miw={730} verticalSpacing="md" highlightOnHover><Table.Thead><Table.Tr><Table.Th w={40}><Checkbox aria-label="Select all filtered chapters" checked={allVisible} indeterminate={!allVisible&&visibleEligible.some(n=>pickedSet.has(n))} disabled={!visibleEligible.length} onChange={e=>selectMany(visibleEligible,e.currentTarget.checked)}/></Table.Th><Table.Th>Chapter</Table.Th><Table.Th>Translation</Table.Th><Table.Th>Summary</Table.Th><Table.Th/></Table.Tr></Table.Thead><Table.Tbody>{filtered.slice((page-1)*25,page*25).map(c=><Table.Tr key={c.number} bg={pickedSet.has(c.number)?'indigo.0':undefined}><Table.Td><Checkbox aria-label={`Select chapter ${c.number}`} disabled={!eligible(c)} checked={pickedSet.has(c.number)} onChange={e=>toggle(c,e.currentTarget.checked,e.nativeEvent.shiftKey)}/></Table.Td><Table.Td><Group wrap="nowrap"><span className="chapter-number">{c.number}</span><div><Text fw={600} size="sm">{c.title}</Text><Text size="xs" c="dimmed">{c.origin?`Volume ${c.origin.volume} · ${c.origin.paragraphs} paragraphs`:''}</Text></div></Group></Table.Td><Table.Td><Badge variant="light" color={active.has(c.number)?'indigo':c.state==='approved'?'teal':c.translation_hash?'orange':'gray'}>{active.has(c.number)?'In the job queue':labels[c.state]||c.state}</Badge></Table.Td><Table.Td><Text size="xs" c="dimmed">{c.summary_state==='approved'?'Approved':c.summary_state==='draft'?'To review':c.summary_state==='stale'?'Needs review':'—'}</Text></Table.Td><Table.Td><Group justify="flex-end" gap="xs"><Button size="xs" variant={c.translation_hash?'light':'subtle'} onClick={()=>onOpen(c.number)} leftSection={<IconBook2 size={14}/>}>{c.translation_hash?'Review':'Open'}</Button>{eligible(c)&&<Button size="xs" variant="default" disabled={!canPrepare} onClick={()=>onPrepare([c.number])}>Prepare</Button>}</Group></Table.Td></Table.Tr>)}</Table.Tbody></Table></ScrollArea>
-   {!filtered.length&&<Text ta="center" c="dimmed" p="xl">No chapters match this filter.</Text>}{filtered.length>25&&<Pagination mt="lg" total={Math.ceil(filtered.length/25)} value={Math.min(page,Math.ceil(filtered.length/25))} onChange={setPage}/>}
-  </Paper>
-  <Paper className="selection-bar" withBorder p="md"><Group justify="space-between"><div><Text fw={650}>{picked.length} chapter{picked.length!==1?'s':''} selected</Text><Text size="xs" c="dimmed">{picked.filter(n=>!filtered.some(c=>c.number===n)).length} outside the current filter · reading order preserved</Text></div><Group><Button variant="subtle" color="gray" disabled={!selected.length} onClick={()=>setSelected([])}>Deselect all</Button><Button disabled={!picked.length||!canPrepare} leftSection={<IconPlayerPlay size={17}/>} onClick={()=>onPrepare(chapters.filter(c=>pickedSet.has(c.number)).map(c=>c.number))}>Prepare batch · {picked.length}</Button></Group></Group></Paper>
- </Stack>;
+const labels = {
+  imported: 'To translate',
+  missing: 'To translate',
+  draft: 'To review',
+  approved: 'Approved',
+  needs_review: 'Needs review',
+};
+const narrative = new Set(['chapter', 'intermission', 'interlude', 'epilogue', 'prologue']);
+export default function ChapterList({
+  chapters,
+  storageKey,
+  jobs,
+  runs,
+  onOpen,
+  onPrepare,
+  onImport,
+  canPrepare,
+}) {
+  const [selected, setSelected] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem(storageKey) || '[]');
+    } catch {
+      return [];
+    }
+  });
+  const [search, setSearch] = useState(''),
+    [status, setStatus] = useState('all'),
+    [volume, setVolume] = useState('all'),
+    [sections, setSections] = useState('story'),
+    [page, setPage] = useState(1),
+    [from, setFrom] = useState(null),
+    [to, setTo] = useState(null);
+  const anchor = useRef(null);
+  const active = useMemo(
+    () =>
+      new Set([
+        ...jobs.filter((j) => ['queued', 'running'].includes(j.state)).map((j) => j.number),
+        ...runs
+          .filter((r) => !['completed', 'cancelled'].includes(r.state))
+          .flatMap((r) => r.items.filter((i) => i.state !== 'done').map((i) => i.number)),
+      ]),
+    [jobs, runs],
+  );
+  const eligible = (c) => !c.translation_hash && !active.has(c.number);
+  const available = chapters.filter(eligible),
+    allowed = new Set(available.map((c) => c.number));
+  const picked = selected.filter((n) => allowed.has(n));
+  useEffect(() => {
+    localStorage.setItem(storageKey, JSON.stringify(selected));
+  }, [storageKey, selected]);
+  const filtered = chapters.filter(
+    (c) =>
+      `${c.number} ${c.title}`.toLowerCase().includes(search.toLowerCase()) &&
+      (status === 'all' || c.state === status) &&
+      (volume === 'all' || String(c.origin?.volume) === volume) &&
+      (sections === 'all' || !c.origin || narrative.has(c.origin.kind)),
+  );
+  useEffect(() => {
+    setPage((p) => Math.min(p, Math.max(1, Math.ceil(filtered.length / 25))));
+  }, [filtered.length]);
+  const visibleEligible = filtered.filter(eligible).map((c) => c.number),
+    pickedSet = new Set(picked);
+  const volumes = [
+    ...new Set(chapters.filter((c) => c.origin?.volume != null).map((c) => c.origin.volume)),
+  ].sort((a, b) => a - b);
+  const approved = chapters.filter((c) => c.state === 'approved').length,
+    reviewable = chapters.filter((c) => c.translation_hash && c.state !== 'approved');
+  const rangeOptions = chapters.map((c) => ({
+    value: String(c.number),
+    label: `${c.origin?.volume ? `V${c.origin.volume} · ` : ''}${c.number} — ${c.title}`,
+  }));
+  const changeFilter = (setter, value) => {
+    setter(value);
+    setPage(1);
+  };
+  function selectMany(numbers, checked = true) {
+    setSelected((previous) =>
+      checked
+        ? [...new Set([...previous, ...numbers])]
+        : previous.filter((n) => !numbers.includes(n)),
+    );
+  }
+  function toggle(c, checked, shift) {
+    let range = [c.number];
+    if (shift && anchor.current != null) {
+      const a = filtered.findIndex((x) => x.number === anchor.current),
+        b = filtered.findIndex((x) => x.number === c.number);
+      if (a >= 0)
+        range = filtered
+          .slice(Math.min(a, b), Math.max(a, b) + 1)
+          .filter(eligible)
+          .map((x) => x.number);
+    }
+    selectMany(range, checked);
+    anchor.current = c.number;
+  }
+  function selectRange() {
+    const a = chapters.findIndex((c) => String(c.number) === from),
+      b = chapters.findIndex((c) => String(c.number) === to);
+    if (a < 0 || b < 0) return;
+    selectMany(
+      chapters
+        .slice(Math.min(a, b), Math.max(a, b) + 1)
+        .filter(eligible)
+        .filter((c) => sections === 'all' || !c.origin || narrative.has(c.origin.kind))
+        .map((c) => c.number),
+    );
+  }
+  const allVisible = visibleEligible.length > 0 && visibleEligible.every((n) => pickedSet.has(n));
+  return (
+    <Stack gap="lg">
+      <SimpleGrid cols={{ base: 1, sm: 3 }}>
+        <Paper withBorder p="md">
+          <Text size="xs" c="dimmed">
+            TO TRANSLATE
+          </Text>
+          <Title order={2}>{available.length}</Title>
+          <Text size="xs" c="dimmed">
+            Chapters available for a new batch
+          </Text>
+        </Paper>
+        <Paper withBorder p="md">
+          <Group justify="space-between">
+            <div>
+              <Text size="xs" c="dimmed">
+                TO REVIEW
+              </Text>
+              <Title order={2}>{reviewable.length}</Title>
+            </div>
+            <Button
+              variant="light"
+              disabled={!reviewable.length}
+              onClick={() => onOpen(reviewable[0].number)}
+              rightSection={<IconArrowRight size={15} />}
+            >
+              Resume
+            </Button>
+          </Group>
+        </Paper>
+        <Paper withBorder p="md">
+          <Text size="xs" c="dimmed">
+            APPROVED
+          </Text>
+          <Title order={2}>
+            {approved}
+            <Text component="span" size="sm" c="dimmed">
+              {' '}
+              / {chapters.length}
+            </Text>
+          </Title>
+          <Progress
+            mt="xs"
+            color="teal"
+            value={chapters.length ? (100 * approved) / chapters.length : 0}
+          />
+        </Paper>
+      </SimpleGrid>
+      <Paper withBorder p="lg">
+        <Group justify="space-between" mb="lg">
+          <div>
+            <Title order={3}>Chapters and volumes</Title>
+            <Text size="sm" c="dimmed" mt={4}>
+              Choose a batch, then open its translations in the workspace.
+            </Text>
+          </div>
+          <Button variant="default" size="sm" onClick={onImport}>
+            Import a chapter
+          </Button>
+        </Group>
+        <Group mb="md" align="flex-end">
+          <TextInput
+            label="Search"
+            placeholder="Title or number…"
+            leftSection={<IconSearch size={16} />}
+            value={search}
+            onChange={(e) => changeFilter(setSearch, e.target.value)}
+          />
+          <Select
+            label="Status"
+            w={150}
+            allowDeselect={false}
+            data={[
+              { value: 'all', label: 'All statuses' },
+              ...Object.entries(labels)
+                .filter(([k]) => k !== 'missing')
+                .map(([value, label]) => ({ value, label })),
+            ]}
+            value={status}
+            onChange={(v) => changeFilter(setStatus, v)}
+          />
+          {volumes.length > 0 && (
+            <Select
+              label="Volume"
+              w={150}
+              allowDeselect={false}
+              data={[
+                { value: 'all', label: 'All volumes' },
+                ...volumes.map((v) => ({ value: String(v), label: `Volume ${v}` })),
+              ]}
+              value={volume}
+              onChange={(v) => changeFilter(setVolume, v)}
+            />
+          )}
+          <Select
+            label="Sections"
+            w={180}
+            allowDeselect={false}
+            data={[
+              { value: 'story', label: 'Story and interludes' },
+              { value: 'all', label: 'All sections' },
+            ]}
+            value={sections}
+            onChange={(v) => changeFilter(setSections, v)}
+          />
+        </Group>
+        <div className="selection-tools">
+          <Group align="flex-end">
+            <Select
+              label="From chapter"
+              placeholder="Range start"
+              searchable
+              clearable
+              data={rangeOptions}
+              value={from}
+              onChange={setFrom}
+              w={220}
+            />
+            <Select
+              label="To chapter"
+              placeholder="Range end"
+              searchable
+              clearable
+              data={rangeOptions}
+              value={to}
+              onChange={setTo}
+              w={220}
+            />
+            <Button variant="default" disabled={!from || !to} onClick={selectRange}>
+              Add range
+            </Button>
+            <Button
+              variant="subtle"
+              disabled={!visibleEligible.length}
+              onClick={() => selectMany(visibleEligible)}
+            >
+              Select the {visibleEligible.length} available chapters shown
+            </Button>
+          </Group>
+          <Text size="xs" c="dimmed" mt="xs">
+            Selection covers every page in this filter. Shift-click selects a range. Existing
+            translations and queued chapters are protected.
+          </Text>
+        </div>
+        <ScrollArea>
+          <Table miw={730} verticalSpacing="md" highlightOnHover>
+            <Table.Thead>
+              <Table.Tr>
+                <Table.Th w={40}>
+                  <Checkbox
+                    aria-label="Select all filtered chapters"
+                    checked={allVisible}
+                    indeterminate={!allVisible && visibleEligible.some((n) => pickedSet.has(n))}
+                    disabled={!visibleEligible.length}
+                    onChange={(e) => selectMany(visibleEligible, e.currentTarget.checked)}
+                  />
+                </Table.Th>
+                <Table.Th>Chapter</Table.Th>
+                <Table.Th>Translation</Table.Th>
+                <Table.Th>Summary</Table.Th>
+                <Table.Th />
+              </Table.Tr>
+            </Table.Thead>
+            <Table.Tbody>
+              {filtered.slice((page - 1) * 25, page * 25).map((c) => (
+                <Table.Tr key={c.number} bg={pickedSet.has(c.number) ? 'indigo.0' : undefined}>
+                  <Table.Td>
+                    <Checkbox
+                      aria-label={`Select chapter ${c.number}`}
+                      disabled={!eligible(c)}
+                      checked={pickedSet.has(c.number)}
+                      onChange={(e) => toggle(c, e.currentTarget.checked, e.nativeEvent.shiftKey)}
+                    />
+                  </Table.Td>
+                  <Table.Td>
+                    <Group wrap="nowrap">
+                      <span className="chapter-number">{c.number}</span>
+                      <div>
+                        <Text fw={600} size="sm">
+                          {c.title}
+                        </Text>
+                        <Text size="xs" c="dimmed">
+                          {c.origin
+                            ? `Volume ${c.origin.volume} · ${c.origin.paragraphs} paragraphs`
+                            : ''}
+                        </Text>
+                      </div>
+                    </Group>
+                  </Table.Td>
+                  <Table.Td>
+                    <Badge
+                      variant="light"
+                      color={
+                        active.has(c.number)
+                          ? 'indigo'
+                          : c.state === 'approved'
+                            ? 'teal'
+                            : c.translation_hash
+                              ? 'orange'
+                              : 'gray'
+                      }
+                    >
+                      {active.has(c.number) ? 'In the job queue' : labels[c.state] || c.state}
+                    </Badge>
+                  </Table.Td>
+                  <Table.Td>
+                    <Text size="xs" c="dimmed">
+                      {c.summary_state === 'approved'
+                        ? 'Approved'
+                        : c.summary_state === 'draft'
+                          ? 'To review'
+                          : c.summary_state === 'stale'
+                            ? 'Needs review'
+                            : '—'}
+                    </Text>
+                  </Table.Td>
+                  <Table.Td>
+                    <Group justify="flex-end" gap="xs">
+                      <Button
+                        size="xs"
+                        variant={c.translation_hash ? 'light' : 'subtle'}
+                        onClick={() => onOpen(c.number)}
+                        leftSection={<IconBook2 size={14} />}
+                      >
+                        {c.translation_hash ? 'Review' : 'Open'}
+                      </Button>
+                      {eligible(c) && (
+                        <Button
+                          size="xs"
+                          variant="default"
+                          disabled={!canPrepare}
+                          onClick={() => onPrepare([c.number])}
+                        >
+                          Prepare
+                        </Button>
+                      )}
+                    </Group>
+                  </Table.Td>
+                </Table.Tr>
+              ))}
+            </Table.Tbody>
+          </Table>
+        </ScrollArea>
+        {!filtered.length && (
+          <Text ta="center" c="dimmed" p="xl">
+            No chapters match this filter.
+          </Text>
+        )}
+        {filtered.length > 25 && (
+          <Pagination
+            mt="lg"
+            total={Math.ceil(filtered.length / 25)}
+            value={Math.min(page, Math.ceil(filtered.length / 25))}
+            onChange={setPage}
+          />
+        )}
+      </Paper>
+      <Paper className="selection-bar" withBorder p="md">
+        <Group justify="space-between">
+          <div>
+            <Text fw={650}>
+              {picked.length} chapter{picked.length !== 1 ? 's' : ''} selected
+            </Text>
+            <Text size="xs" c="dimmed">
+              {picked.filter((n) => !filtered.some((c) => c.number === n)).length} outside the
+              current filter · reading order preserved
+            </Text>
+          </div>
+          <Group>
+            <Button
+              variant="subtle"
+              color="gray"
+              disabled={!selected.length}
+              onClick={() => setSelected([])}
+            >
+              Deselect all
+            </Button>
+            <Button
+              disabled={!picked.length || !canPrepare}
+              leftSection={<IconPlayerPlay size={17} />}
+              onClick={() =>
+                onPrepare(chapters.filter((c) => pickedSet.has(c.number)).map((c) => c.number))
+              }
+            >
+              Prepare batch · {picked.length}
+            </Button>
+          </Group>
+        </Group>
+      </Paper>
+    </Stack>
+  );
 }

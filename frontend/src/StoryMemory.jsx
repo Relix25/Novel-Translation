@@ -1,57 +1,796 @@
-import React, {useEffect, useRef, useState} from 'react';
-import {Accordion, Alert, Avatar, Badge, Button, Card, Divider, Group, Loader, Modal, Pagination, Paper, Select, SimpleGrid, Stack, Tabs, Text, Textarea, TextInput, ThemeIcon, Title} from '@mantine/core';
-import {IconArrowRight, IconBook2, IconBuilding, IconCheck, IconMapPin, IconPlus, IconSearch, IconShieldCheck, IconSparkles, IconSwords, IconUsers, IconVocabulary, IconWorld} from '@tabler/icons-react';
+import React, { useEffect, useRef, useState } from 'react';
+import {
+  Accordion,
+  Alert,
+  Avatar,
+  Badge,
+  Button,
+  Card,
+  Divider,
+  Group,
+  Loader,
+  Modal,
+  Pagination,
+  Paper,
+  Select,
+  SimpleGrid,
+  Stack,
+  Tabs,
+  Text,
+  Textarea,
+  TextInput,
+  ThemeIcon,
+  Title,
+} from '@mantine/core';
+import {
+  IconArrowRight,
+  IconBook2,
+  IconBuilding,
+  IconMapPin,
+  IconPlus,
+  IconSearch,
+  IconShieldCheck,
+  IconSparkles,
+  IconSwords,
+  IconUsers,
+  IconVocabulary,
+  IconWorld,
+} from '@tabler/icons-react';
 
 const kinds = {
-  character:{label:'Characters',singular:'Character',icon:IconUsers,color:'indigo'},
-  place:{label:'Places',singular:'Place',icon:IconMapPin,color:'teal'},
-  organization:{label:'Organizations',singular:'Organization',icon:IconBuilding,color:'blue'},
-  item:{label:'Items',singular:'Item',icon:IconBook2,color:'orange'},
-  ability:{label:'Abilities',singular:'Ability',icon:IconSwords,color:'grape'},
-  event:{label:'Events',singular:'Event',icon:IconSparkles,color:'pink'},
-  other:{label:'Others',singular:'Unclassified',icon:IconVocabulary,color:'gray'},
+  character: { label: 'Characters', singular: 'Character', icon: IconUsers, color: 'indigo' },
+  place: { label: 'Places', singular: 'Place', icon: IconMapPin, color: 'teal' },
+  organization: {
+    label: 'Organizations',
+    singular: 'Organization',
+    icon: IconBuilding,
+    color: 'blue',
+  },
+  item: { label: 'Items', singular: 'Item', icon: IconBook2, color: 'orange' },
+  ability: { label: 'Abilities', singular: 'Ability', icon: IconSwords, color: 'grape' },
+  event: { label: 'Events', singular: 'Event', icon: IconSparkles, color: 'pink' },
+  other: { label: 'Others', singular: 'Unclassified', icon: IconVocabulary, color: 'gray' },
 };
-const fields = {identity:'Identity',role:'Role',appearance:'Appearance',personality:'Personality',relation:'Relationship',state:'State',event:'Event'};
-const chapterLabel = c => `${c.origin?.volume ? `Volume ${c.origin.volume} · `: ''}Ch. ${c.number} — ${c.title}`;
+const fields = {
+  identity: 'Identity',
+  role: 'Role',
+  appearance: 'Appearance',
+  personality: 'Personality',
+  relation: 'Relationship',
+  state: 'State',
+  event: 'Event',
+};
+const chapterLabel = (c) =>
+  `${c.origin?.volume ? `Volume ${c.origin.volume} · ` : ''}Ch. ${c.number} — ${c.title}`;
 
-export default function StoryMemory({query,chapters,get,act,base,concepts,newConcept,models,connected,jobs,limits,enabled,initialNumber,onRead}) {
-  const [cutoff,setCutoff]=useState(''),[data,setData]=useState(null),[error,setError]=useState(''),[search,setSearch]=useState(''),[filter,setFilter]=useState('all'),[page,setPage]=useState(1),[reload,setReload]=useState(0);
-  const [entityId,setEntityId]=useState(null),[detail,setDetail]=useState(null),[decision,setDecision]=useState(null),[reason,setReason]=useState(''),[adding,setAdding]=useState(false),[sourceChapter,setSourceChapter]=useState(null),[draft,setDraft]=useState({field:'identity',text:'',segment:'',quote:''}),[working,setWorking]=useState(false),[launch,setLaunch]=useState(false);
-  const request=useRef(0);
-  const jobKey=jobs.filter(j=>j.kind==='memory').map(j=>j.id+j.state+(j.progress?.paragraphs_done||0)).join('|');
-  const active=jobs.find(j=>j.kind==='memory'&&j.number===Number(cutoff)&&['running','queued'].includes(j.state));
-  const memoryModel=models.find(m=>m.model.includes('luna')&&m.supportedReasoningEfforts?.some(e=>e.reasoningEffort==='low'))?.model;
-  useEffect(()=>{if(initialNumber)setCutoff(String(initialNumber));},[initialNumber]);
-  useEffect(()=>{if(!cutoff&&chapters.length)setCutoff(String(initialNumber||chapters.find(c=>c.state==='approved')?.number||chapters.find(c=>!c.origin||['chapter','prologue'].includes(c.origin.kind))?.number||chapters[0].number));},[chapters,cutoff,initialNumber]);
-  useEffect(()=>{setData(null);setEntityId(null);setDetail(null);setPage(1);setError('');},[cutoff]);
-  useEffect(()=>{if(!cutoff||!enabled)return;let current=true;get(`/api/memory?${query}&number=${cutoff}`).then(r=>{if(current)setData(r);}).catch(e=>{if(current)setError(e.message);});return()=>{current=false;};},[query,cutoff,jobKey,reload,concepts,enabled]);
-  useEffect(()=>{const id=++request.current;setDetail(null);if(entityId)get(`/api/memory?${query}&number=${cutoff}&entity=${encodeURIComponent(entityId)}`).then(r=>{if(id===request.current)setDetail(r);}).catch(e=>{if(id===request.current)setError(e.message);});return()=>{request.current++;};},[entityId,cutoff,query,reload,jobKey]);
-  const all=data?.entities||[], list=all.filter(e=>(filter==='all'||filter==='pending'&&e.pending>0||e.kind===filter)&&`${e.name} ${e.forms.map(f=>f.text).join(' ')}`.toLocaleLowerCase().includes(search.toLocaleLowerCase()));
-  const options=chapters.map(c=>({value:String(c.number),label:chapterLabel(c)}));
-  const here=chapters.find(c=>c.number===Number(cutoff));
-  const chosen=detail||all.find(e=>e.id===entityId);
-  async function change(action,extra,message){setWorking(true);try{const r=await act({...base,action,number:Number(cutoff),...extra},message);if(r)setReload(n=>n+1);return r;}finally{setWorking(false);}}
-  async function add(){setAdding(true);setSourceChapter(null);setDraft({field:'identity',text:'',segment:'',quote:''});try{setSourceChapter(await get(`/api/chapter?${query}&number=${cutoff}`));}catch(e){setError(e.message);}}
-  const passages=sourceChapter?.display_segments||sourceChapter?.segments||[];
-  function terminology(){const existing=concepts.find(c=>c.id===chosen.id);newConcept(existing?{...existing,kind:chosen.kind}:{id:chosen.id,kind:chosen.kind,note:'',forms:chosen.forms});}
-  function evidence(f){return <Stack gap="xs">{f.evidence.map((e,i)=><Paper key={i} p="sm" bg="gray.0" withBorder><Text size="xs" c="dimmed">Passage {e.id.split(':')[1]?.replace(/^0+/,'')||e.id} · chapter {f.number}</Text><Text size="sm" className="memory-quote">{e.quote}</Text></Paper>)}<Button variant="subtle" size="compact-xs" onClick={()=>{setEntityId(null);setDecision(null);onRead(f.number);}}>Read source chapter <IconArrowRight size={14}/></Button></Stack>;}
-  function factRows(facts){return facts.length?<Accordion variant="separated">{facts.map(f=><Accordion.Item key={f.id} value={f.id}><Accordion.Control><Group justify="space-between" wrap="nowrap"><div><Text size="xs" c="dimmed">Ch. {f.number} · {fields[f.field]}</Text><Text size="sm" fw={500}>{f.text}</Text></div><Badge flex="none" color={f.stale?'red':f.state==='approved'?'teal':f.state==='rejected'?'gray':'orange'}>{f.stale?'Source changed':f.state==='approved'?'Approved':f.state==='rejected'?'Rejected':'To check'}</Badge></Group></Accordion.Control><Accordion.Panel>{evidence(f)}<Group mt="md">{f.state!=='approved'&&!f.stale&&<Button size="xs" variant="light" color="teal" onClick={()=>{setDecision({...f,next:'approved'});setReason('');}}>Review and approve</Button>}<Button size="xs" variant="subtle" color="gray" onClick={()=>{setDecision({...f,next:f.state==='rejected'?'draft':'rejected'});setReason('');}}>{f.state==='rejected'?'Restore as proposal':'Reject this observation'}</Button></Group></Accordion.Panel></Accordion.Item>)}</Accordion>:<Text c="dimmed" py="lg">No observations in this view.</Text>;}
+export default function StoryMemory({
+  query,
+  chapters,
+  get,
+  act,
+  base,
+  concepts,
+  newConcept,
+  models,
+  connected,
+  jobs,
+  limits,
+  enabled,
+  initialNumber,
+  onRead,
+}) {
+  const [cutoff, setCutoff] = useState(''),
+    [data, setData] = useState(null),
+    [error, setError] = useState(''),
+    [search, setSearch] = useState(''),
+    [filter, setFilter] = useState('all'),
+    [page, setPage] = useState(1),
+    [reload, setReload] = useState(0);
+  const [entityId, setEntityId] = useState(null),
+    [detail, setDetail] = useState(null),
+    [decision, setDecision] = useState(null),
+    [reason, setReason] = useState(''),
+    [adding, setAdding] = useState(false),
+    [sourceChapter, setSourceChapter] = useState(null),
+    [draft, setDraft] = useState({ field: 'identity', text: '', segment: '', quote: '' }),
+    [working, setWorking] = useState(false),
+    [launch, setLaunch] = useState(false);
+  const request = useRef(0);
+  const jobKey = jobs
+    .filter((j) => j.kind === 'memory')
+    .map((j) => j.id + j.state + (j.progress?.paragraphs_done || 0))
+    .join('|');
+  const active = jobs.find(
+    (j) =>
+      j.kind === 'memory' && j.number === Number(cutoff) && ['running', 'queued'].includes(j.state),
+  );
+  const memoryModel = models.find(
+    (m) =>
+      m.model.includes('luna') &&
+      m.supportedReasoningEfforts?.some((e) => e.reasoningEffort === 'low'),
+  )?.model;
+  useEffect(() => {
+    if (initialNumber) setCutoff(String(initialNumber));
+  }, [initialNumber]);
+  useEffect(() => {
+    if (!cutoff && chapters.length)
+      setCutoff(
+        String(
+          initialNumber ||
+            chapters.find((c) => c.state === 'approved')?.number ||
+            chapters.find((c) => !c.origin || ['chapter', 'prologue'].includes(c.origin.kind))
+              ?.number ||
+            chapters[0].number,
+        ),
+      );
+  }, [chapters, cutoff, initialNumber]);
+  useEffect(() => {
+    setData(null);
+    setEntityId(null);
+    setDetail(null);
+    setPage(1);
+    setError('');
+  }, [cutoff]);
+  useEffect(() => {
+    if (!cutoff || !enabled) return;
+    let current = true;
+    get(`/api/memory?${query}&number=${cutoff}`)
+      .then((r) => {
+        if (current) setData(r);
+      })
+      .catch((e) => {
+        if (current) setError(e.message);
+      });
+    return () => {
+      current = false;
+    };
+  }, [query, cutoff, jobKey, reload, concepts, enabled, get]);
+  useEffect(() => {
+    const id = ++request.current;
+    let current = true;
+    setDetail(null);
+    if (entityId)
+      get(`/api/memory?${query}&number=${cutoff}&entity=${encodeURIComponent(entityId)}`)
+        .then((r) => {
+          if (current && id === request.current) setDetail(r);
+        })
+        .catch((e) => {
+          if (current && id === request.current) setError(e.message);
+        });
+    return () => {
+      current = false;
+    };
+  }, [entityId, cutoff, query, reload, jobKey, get]);
+  const all = data?.entities || [],
+    list = all.filter(
+      (e) =>
+        (filter === 'all' || (filter === 'pending' && e.pending > 0) || e.kind === filter) &&
+        `${e.name} ${e.forms.map((f) => f.text).join(' ')}`
+          .toLocaleLowerCase()
+          .includes(search.toLocaleLowerCase()),
+    );
+  const options = chapters.map((c) => ({ value: String(c.number), label: chapterLabel(c) }));
+  const here = chapters.find((c) => c.number === Number(cutoff));
+  const chosen = detail || all.find((e) => e.id === entityId);
+  async function change(action, extra, message) {
+    setWorking(true);
+    try {
+      const r = await act({ ...base, action, number: Number(cutoff), ...extra }, message);
+      if (r) setReload((n) => n + 1);
+      return r;
+    } finally {
+      setWorking(false);
+    }
+  }
+  async function add() {
+    setAdding(true);
+    setSourceChapter(null);
+    setDraft({ field: 'identity', text: '', segment: '', quote: '' });
+    try {
+      setSourceChapter(await get(`/api/chapter?${query}&number=${cutoff}`));
+    } catch (e) {
+      setError(e.message);
+    }
+  }
+  const passages = sourceChapter?.display_segments || sourceChapter?.segments || [];
+  function terminology() {
+    const existing = concepts.find((c) => c.id === chosen.id);
+    newConcept(
+      existing
+        ? { ...existing, kind: chosen.kind }
+        : { id: chosen.id, kind: chosen.kind, note: '', forms: chosen.forms },
+    );
+  }
+  function evidence(f) {
+    return (
+      <Stack gap="xs">
+        {f.evidence.map((e, i) => (
+          <Paper key={i} p="sm" bg="gray.0" withBorder>
+            <Text size="xs" c="dimmed">
+              Passage {e.id.split(':')[1]?.replace(/^0+/, '') || e.id} · chapter {f.number}
+            </Text>
+            <Text size="sm" className="memory-quote">
+              {e.quote}
+            </Text>
+          </Paper>
+        ))}
+        <Button
+          variant="subtle"
+          size="compact-xs"
+          onClick={() => {
+            setEntityId(null);
+            setDecision(null);
+            onRead(f.number);
+          }}
+        >
+          Read source chapter <IconArrowRight size={14} />
+        </Button>
+      </Stack>
+    );
+  }
+  function factRows(facts) {
+    return facts.length ? (
+      <Accordion variant="separated">
+        {facts.map((f) => (
+          <Accordion.Item key={f.id} value={f.id}>
+            <Accordion.Control>
+              <Group justify="space-between" wrap="nowrap">
+                <div>
+                  <Text size="xs" c="dimmed">
+                    Ch. {f.number} · {fields[f.field]}
+                  </Text>
+                  <Text size="sm" fw={500}>
+                    {f.text}
+                  </Text>
+                </div>
+                <Badge
+                  flex="none"
+                  color={
+                    f.stale
+                      ? 'red'
+                      : f.state === 'approved'
+                        ? 'teal'
+                        : f.state === 'rejected'
+                          ? 'gray'
+                          : 'orange'
+                  }
+                >
+                  {f.stale
+                    ? 'Source changed'
+                    : f.state === 'approved'
+                      ? 'Approved'
+                      : f.state === 'rejected'
+                        ? 'Rejected'
+                        : 'To check'}
+                </Badge>
+              </Group>
+            </Accordion.Control>
+            <Accordion.Panel>
+              {evidence(f)}
+              <Group mt="md">
+                {f.state !== 'approved' && !f.stale && (
+                  <Button
+                    size="xs"
+                    variant="light"
+                    color="teal"
+                    onClick={() => {
+                      setDecision({ ...f, next: 'approved' });
+                      setReason('');
+                    }}
+                  >
+                    Review and approve
+                  </Button>
+                )}
+                <Button
+                  size="xs"
+                  variant="subtle"
+                  color="gray"
+                  onClick={() => {
+                    setDecision({ ...f, next: f.state === 'rejected' ? 'draft' : 'rejected' });
+                    setReason('');
+                  }}
+                >
+                  {f.state === 'rejected' ? 'Restore as proposal' : 'Reject this observation'}
+                </Button>
+              </Group>
+            </Accordion.Panel>
+          </Accordion.Item>
+        ))}
+      </Accordion>
+    ) : (
+      <Text c="dimmed" py="lg">
+        No observations in this view.
+      </Text>
+    );
+  }
 
-  if(!enabled)return <Alert color="orange">Restart the server with version 0.7 to open story entities.</Alert>;
-  return <Stack gap="lg">
-    <Paper className="memory-banner" withBorder p="xl"><Group justify="space-between" align="flex-start"><div><Text className="eyebrow">THE STORY NOTEBOOK</Text><Title order={2} mt={5}>The people, places and connections.</Title><Text c="dimmed" size="sm" mt="sm" maw={540}>A world that unfolds as you read. Every observation retains its source and first chapter.</Text></div><Button variant="white" leftSection={<IconPlus size={17}/>} onClick={()=>newConcept(null,Number(cutoff)||undefined)}>Create an entity record</Button></Group><Group mt="xl" align="flex-end" justify="space-between"><Select label="Knowledge through…" description="Later revelations stay hidden." data={options} value={cutoff||null} onChange={v=>v&&setCutoff(v)} searchable w={430} maw="100%" nothingFoundMessage="No chapters"/><Badge color="teal" variant="light" leftSection={<IconShieldCheck size={13}/>}>Spoiler-safe reading</Badge></Group></Paper>
-    {error&&<Alert color="red" onClose={()=>setError('')} withCloseButton>{error}</Alert>}
-    <Group justify="space-between" align="flex-end"><Group gap="xs" className="memory-filters">{[{id:'all',label:'All',count:all.length},...Object.entries(kinds).map(([id,k])=>({id,label:k.label,count:all.filter(e=>e.kind===id).length})),{id:'pending',label:'To check',count:all.filter(e=>e.pending>0).length}].map(k=><Button key={k.id} variant={filter===k.id?'light':'subtle'} color={filter===k.id?'indigo':'gray'} size="compact-sm" onClick={()=>{setFilter(k.id);setPage(1);}}>{k.label} <span className="memory-count">{k.count}</span></Button>)}</Group><TextInput aria-label="Search entity records" placeholder="Search a name…" leftSection={<IconSearch size={16}/>} value={search} onChange={e=>{setSearch(e.target.value);setPage(1);}}/></Group>
-    {!data&&cutoff&&!error&&<Loader size="sm"/>}
-    <SimpleGrid cols={{base:1,sm:2,xl:3}} spacing="lg">{list.slice((page-1)*12,page*12).map(e=>{const k=kinds[e.kind]||kinds.other,Icon=k.icon;return <Card key={e.id} withBorder padding="lg" className="memory-card"><Group justify="space-between" align="flex-start"><ThemeIcon size={44} radius="md" color={k.color} variant="light"><Icon size={23} stroke={1.5}/></ThemeIcon><Badge color={k.color} variant="light">{k.singular}</Badge></Group><Title order={3} mt="lg">{e.name}</Title><Text size="xs" c="dimmed" mt={4}>{e.forms.filter(f=>f.text!==e.name).map(f=>`${f.language.toUpperCase()} · ${f.text}`).join(' · ')||`Since chapter ${e.number}`}</Text><Text size="sm" mt="md" c={e.summary.length?undefined:'dimmed'} lineClamp={3} className="memory-card-summary">{e.summary.map(s=>s.text).join(' ')||'This entity is awaiting its first cited observations.'}</Text><Group gap={6} mt="md"><Text size="xs" c="dimmed">{e.approved} approved observation{e.approved!==1?'s':''}</Text>{e.pending>0&&<Badge color="orange" size="xs" variant="light">{e.pending} to check</Badge>}</Group><Divider my="md"/><Button variant="subtle" justify="space-between" fullWidth rightSection={<IconArrowRight size={16}/>} onClick={()=>setEntityId(e.id)}>Open entity record</Button></Card>;})}</SimpleGrid>
-    {data&&!list.length&&<Paper withBorder p="xl" ta="center"><IconWorld size={36} color="#8374fc"/><Title order={3} mt="md">{all.length?'No entities match this filter':'The story starts here'}</Title><Text c="dimmed" size="sm" mt="sm">{all.length?'Try another name or category.':'Create an entity record or analyse this chapter to find characters, places and events.'}</Text></Paper>}
-    {list.length>12&&<Pagination total={Math.ceil(list.length/12)} value={page} onChange={setPage}/>}
-    <Paper withBorder p="lg"><Group justify="space-between"><Group align="flex-start"><ThemeIcon color="indigo" variant="light" size="lg"><IconSparkles size={20}/></ThemeIcon><div><Text fw={600}>Enrich entities from chapter {cutoff||'…'}</Text><Text size="sm" c="dimmed">{active?'Analysis in progress. Completed passages appear in the entity records.':data?.analysis?.completed?'This chapter was already analysed. Proposals are awaiting your review.':'Luna Low extracts facts and quotations. You decide what enters memory.'}</Text><Text size="xs" c="dimmed" mt={4}>Entity overviews use your approved facts without additional AI calls.</Text></div></Group><Button leftSection={<IconSparkles size={16}/>} variant="light" disabled={!cutoff||!memoryModel||!connected||!!active||data?.analysis?.completed||!!data?.analysis?.error} onClick={()=>setLaunch(true)}>{active?'Analysis in progress':data?.analysis?.completed?'Chapter analysed':'Analyse this chapter'}</Button></Group>{data?.analysis?.error&&<Alert color="orange" mt="md">{data.analysis.error}</Alert>}{(!connected||!memoryModel)&&<Text size="xs" c="dimmed" mt="md">Connect Codex with an available Luna model for AI entity analysis. Reading and manual additions remain available.</Text>}</Paper>
+  if (!enabled)
+    return (
+      <Alert color="orange">Restart the server with version 0.7 to open story entities.</Alert>
+    );
+  return (
+    <Stack gap="lg">
+      <Paper className="memory-banner" withBorder p="xl">
+        <Group justify="space-between" align="flex-start">
+          <div>
+            <Text className="eyebrow">THE STORY NOTEBOOK</Text>
+            <Title order={2} mt={5}>
+              The people, places and connections.
+            </Title>
+            <Text c="dimmed" size="sm" mt="sm" maw={540}>
+              A world that unfolds as you read. Every observation retains its source and first
+              chapter.
+            </Text>
+          </div>
+          <Button
+            variant="white"
+            leftSection={<IconPlus size={17} />}
+            onClick={() => newConcept(null, Number(cutoff) || undefined)}
+          >
+            Create an entity record
+          </Button>
+        </Group>
+        <Group mt="xl" align="flex-end" justify="space-between">
+          <Select
+            label="Knowledge through…"
+            description="Later revelations stay hidden."
+            data={options}
+            value={cutoff || null}
+            onChange={(v) => v && setCutoff(v)}
+            searchable
+            w={430}
+            maw="100%"
+            nothingFoundMessage="No chapters"
+          />
+          <Badge color="teal" variant="light" leftSection={<IconShieldCheck size={13} />}>
+            Spoiler-safe reading
+          </Badge>
+        </Group>
+      </Paper>
+      {error && (
+        <Alert color="red" onClose={() => setError('')} withCloseButton>
+          {error}
+        </Alert>
+      )}
+      <Group justify="space-between" align="flex-end">
+        <Group gap="xs" className="memory-filters">
+          {[
+            { id: 'all', label: 'All', count: all.length },
+            ...Object.entries(kinds).map(([id, k]) => ({
+              id,
+              label: k.label,
+              count: all.filter((e) => e.kind === id).length,
+            })),
+            { id: 'pending', label: 'To check', count: all.filter((e) => e.pending > 0).length },
+          ].map((k) => (
+            <Button
+              key={k.id}
+              variant={filter === k.id ? 'light' : 'subtle'}
+              color={filter === k.id ? 'indigo' : 'gray'}
+              size="compact-sm"
+              onClick={() => {
+                setFilter(k.id);
+                setPage(1);
+              }}
+            >
+              {k.label} <span className="memory-count">{k.count}</span>
+            </Button>
+          ))}
+        </Group>
+        <TextInput
+          aria-label="Search entity records"
+          placeholder="Search a name…"
+          leftSection={<IconSearch size={16} />}
+          value={search}
+          onChange={(e) => {
+            setSearch(e.target.value);
+            setPage(1);
+          }}
+        />
+      </Group>
+      {!data && cutoff && !error && <Loader size="sm" />}
+      <SimpleGrid cols={{ base: 1, sm: 2, xl: 3 }} spacing="lg">
+        {list.slice((page - 1) * 12, page * 12).map((e) => {
+          const k = kinds[e.kind] || kinds.other,
+            Icon = k.icon;
+          return (
+            <Card key={e.id} withBorder padding="lg" className="memory-card">
+              <Group justify="space-between" align="flex-start">
+                <ThemeIcon size={44} radius="md" color={k.color} variant="light">
+                  <Icon size={23} stroke={1.5} />
+                </ThemeIcon>
+                <Badge color={k.color} variant="light">
+                  {k.singular}
+                </Badge>
+              </Group>
+              <Title order={3} mt="lg">
+                {e.name}
+              </Title>
+              <Text size="xs" c="dimmed" mt={4}>
+                {e.forms
+                  .filter((f) => f.text !== e.name)
+                  .map((f) => `${f.language.toUpperCase()} · ${f.text}`)
+                  .join(' · ') || `Since chapter ${e.number}`}
+              </Text>
+              <Text
+                size="sm"
+                mt="md"
+                c={e.summary.length ? undefined : 'dimmed'}
+                lineClamp={3}
+                className="memory-card-summary"
+              >
+                {e.summary.map((s) => s.text).join(' ') ||
+                  'This entity is awaiting its first cited observations.'}
+              </Text>
+              <Group gap={6} mt="md">
+                <Text size="xs" c="dimmed">
+                  {e.approved} approved observation{e.approved !== 1 ? 's' : ''}
+                </Text>
+                {e.pending > 0 && (
+                  <Badge color="orange" size="xs" variant="light">
+                    {e.pending} to check
+                  </Badge>
+                )}
+              </Group>
+              <Divider my="md" />
+              <Button
+                variant="subtle"
+                justify="space-between"
+                fullWidth
+                rightSection={<IconArrowRight size={16} />}
+                onClick={() => setEntityId(e.id)}
+              >
+                Open entity record
+              </Button>
+            </Card>
+          );
+        })}
+      </SimpleGrid>
+      {data && !list.length && (
+        <Paper withBorder p="xl" ta="center">
+          <IconWorld size={36} color="#8374fc" />
+          <Title order={3} mt="md">
+            {all.length ? 'No entities match this filter' : 'The story starts here'}
+          </Title>
+          <Text c="dimmed" size="sm" mt="sm">
+            {all.length
+              ? 'Try another name or category.'
+              : 'Create an entity record or analyse this chapter to find characters, places and events.'}
+          </Text>
+        </Paper>
+      )}
+      {list.length > 12 && (
+        <Pagination total={Math.ceil(list.length / 12)} value={page} onChange={setPage} />
+      )}
+      <Paper withBorder p="lg">
+        <Group justify="space-between">
+          <Group align="flex-start">
+            <ThemeIcon color="indigo" variant="light" size="lg">
+              <IconSparkles size={20} />
+            </ThemeIcon>
+            <div>
+              <Text fw={600}>Enrich entities from chapter {cutoff || '…'}</Text>
+              <Text size="sm" c="dimmed">
+                {active
+                  ? 'Analysis in progress. Completed passages appear in the entity records.'
+                  : data?.analysis?.completed
+                    ? 'This chapter was already analysed. Proposals are awaiting your review.'
+                    : 'Luna Low extracts facts and quotations. You decide what enters memory.'}
+              </Text>
+              <Text size="xs" c="dimmed" mt={4}>
+                Entity overviews use your approved facts without additional AI calls.
+              </Text>
+            </div>
+          </Group>
+          <Button
+            leftSection={<IconSparkles size={16} />}
+            variant="light"
+            disabled={
+              !cutoff ||
+              !memoryModel ||
+              !connected ||
+              !!active ||
+              data?.analysis?.completed ||
+              !!data?.analysis?.error
+            }
+            onClick={() => setLaunch(true)}
+          >
+            {active
+              ? 'Analysis in progress'
+              : data?.analysis?.completed
+                ? 'Chapter analysed'
+                : 'Analyse this chapter'}
+          </Button>
+        </Group>
+        {data?.analysis?.error && (
+          <Alert color="orange" mt="md">
+            {data.analysis.error}
+          </Alert>
+        )}
+        {(!connected || !memoryModel) && (
+          <Text size="xs" c="dimmed" mt="md">
+            Connect Codex with an available Luna model for AI entity analysis. Reading and manual
+            additions remain available.
+          </Text>
+        )}
+      </Paper>
 
-    <Modal opened={!!entityId} onClose={()=>setEntityId(null)} size="xl" title="Story entity" centered>{!detail?<Loader size="sm"/>:<Stack gap="lg"><div className="memory-detail-head"><Group justify="space-between" align="flex-start"><Group><Avatar size={52} radius="md" color={kinds[detail.kind]?.color}>{detail.name.slice(0,2)}</Avatar><div><Title order={2}>{detail.name}</Title><Text size="sm" c="dimmed">{detail.forms.map(f=>`${f.language.toUpperCase()} · ${f.text}`).join(' / ')}</Text></div></Group><Badge color="teal" variant="light">Through ch. {cutoff}</Badge></Group><Group mt="lg" justify="space-between"><Select aria-label="Entity category" size="xs" data={Object.entries(kinds).map(([value,k])=>({value,label:k.singular}))} value={detail.kind} disabled={working} onChange={kind=>kind&&change('memory-classify',{entity:detail.id,kind})}/><Button size="xs" variant="subtle" onClick={terminology}>{detail.terminology==='approved'?'Edit glossary names':'Approve names in the glossary'}</Button></Group>{detail.terminology==='proposed'&&<Text size="xs" c="orange" mt="sm">Proposed names do not replace approved terminology.</Text>}</div><Tabs defaultValue="overview"><Tabs.List><Tabs.Tab value="overview">Overview</Tabs.Tab><Tabs.Tab value="timeline">Timeline</Tabs.Tab><Tabs.Tab value="review">To check · {detail.pending}</Tabs.Tab></Tabs.List><Tabs.Panel value="overview" pt="lg"><Stack><Text size="xs" c="dimmed">Overview of the latest approved facts by field. Changes remain available in the timeline.</Text>{detail.summary.length?detail.summary.map(s=><Paper p="md" withBorder key={s.id}><Text size="sm">{s.text}</Text><Text size="xs" c="dimmed" mt={6}>Established in chapter {s.number}</Text></Paper>):<Alert color="gray">No approved observations at this point in the story. Review proposals or add a fact with a quotation.</Alert>}{factRows(detail.facts.filter(f=>f.state==='approved'&&!f.stale))}</Stack></Tabs.Panel><Tabs.Panel value="timeline" pt="lg"><Text size="sm" c="dimmed" mb="md">Observations in reading order. Contradictions and changes remain visible with their dates.</Text>{factRows(detail.facts)}</Tabs.Panel><Tabs.Panel value="review" pt="lg">{factRows(detail.facts.filter(f=>f.state==='draft'||f.stale&&f.state==='approved'))}</Tabs.Panel></Tabs><Button leftSection={<IconPlus size={16}/>} variant="light" onClick={add}>Add an observation · chapter {cutoff}</Button></Stack>}</Modal>
+      <Modal
+        opened={!!entityId}
+        onClose={() => setEntityId(null)}
+        size="xl"
+        title="Story entity"
+        centered
+      >
+        {!detail ? (
+          <Loader size="sm" />
+        ) : (
+          <Stack gap="lg">
+            <div className="memory-detail-head">
+              <Group justify="space-between" align="flex-start">
+                <Group>
+                  <Avatar size={52} radius="md" color={kinds[detail.kind]?.color}>
+                    {detail.name.slice(0, 2)}
+                  </Avatar>
+                  <div>
+                    <Title order={2}>{detail.name}</Title>
+                    <Text size="sm" c="dimmed">
+                      {detail.forms
+                        .map((f) => `${f.language.toUpperCase()} · ${f.text}`)
+                        .join(' / ')}
+                    </Text>
+                  </div>
+                </Group>
+                <Badge color="teal" variant="light">
+                  Through ch. {cutoff}
+                </Badge>
+              </Group>
+              <Group mt="lg" justify="space-between">
+                <Select
+                  aria-label="Entity category"
+                  size="xs"
+                  data={Object.entries(kinds).map(([value, k]) => ({ value, label: k.singular }))}
+                  value={detail.kind}
+                  disabled={working}
+                  onChange={(kind) =>
+                    kind && change('memory-classify', { entity: detail.id, kind })
+                  }
+                />
+                <Button size="xs" variant="subtle" onClick={terminology}>
+                  {detail.terminology === 'approved'
+                    ? 'Edit glossary names'
+                    : 'Approve names in the glossary'}
+                </Button>
+              </Group>
+              {detail.terminology === 'proposed' && (
+                <Text size="xs" c="orange" mt="sm">
+                  Proposed names do not replace approved terminology.
+                </Text>
+              )}
+            </div>
+            <Tabs defaultValue="overview">
+              <Tabs.List>
+                <Tabs.Tab value="overview">Overview</Tabs.Tab>
+                <Tabs.Tab value="timeline">Timeline</Tabs.Tab>
+                <Tabs.Tab value="review">To check · {detail.pending}</Tabs.Tab>
+              </Tabs.List>
+              <Tabs.Panel value="overview" pt="lg">
+                <Stack>
+                  <Text size="xs" c="dimmed">
+                    Overview of the latest approved facts by field. Changes remain available in the
+                    timeline.
+                  </Text>
+                  {detail.summary.length ? (
+                    detail.summary.map((s) => (
+                      <Paper p="md" withBorder key={s.id}>
+                        <Text size="sm">{s.text}</Text>
+                        <Text size="xs" c="dimmed" mt={6}>
+                          Established in chapter {s.number}
+                        </Text>
+                      </Paper>
+                    ))
+                  ) : (
+                    <Alert color="gray">
+                      No approved observations at this point in the story. Review proposals or add a
+                      fact with a quotation.
+                    </Alert>
+                  )}
+                  {factRows(detail.facts.filter((f) => f.state === 'approved' && !f.stale))}
+                </Stack>
+              </Tabs.Panel>
+              <Tabs.Panel value="timeline" pt="lg">
+                <Text size="sm" c="dimmed" mb="md">
+                  Observations in reading order. Contradictions and changes remain visible with
+                  their dates.
+                </Text>
+                {factRows(detail.facts)}
+              </Tabs.Panel>
+              <Tabs.Panel value="review" pt="lg">
+                {factRows(
+                  detail.facts.filter(
+                    (f) => f.state === 'draft' || (f.stale && f.state === 'approved'),
+                  ),
+                )}
+              </Tabs.Panel>
+            </Tabs>
+            <Button leftSection={<IconPlus size={16} />} variant="light" onClick={add}>
+              Add an observation · chapter {cutoff}
+            </Button>
+          </Stack>
+        )}
+      </Modal>
 
-    <Modal opened={!!decision} onClose={()=>setDecision(null)} title={decision?.next==='approved'?'Approve a cited observation':decision?.next==='rejected'?'Reject an observation':'Restore a proposal'} size="lg" centered>{decision&&<Stack><Text fw={600}>{decision.text}</Text>{evidence(decision)}<Textarea label="Reason for the decision" placeholder="Checked against the quoted passage…" value={reason} onChange={e=>setReason(e.target.value)} minRows={2}/><Text size="xs" c="dimmed">Approval updates entity records and the context of later chapters. Approved translations must be reviewed again if their context changes.</Text><Button color={decision.next==='approved'?'teal':'gray'} loading={working} disabled={reason.trim().length<3} onClick={async()=>{if(await change('memory-decide',{number:decision.number,fact_id:decision.id,hash:decision.hash,state:decision.next,reason},'Decision saved.'))setDecision(null);}}>{decision.next==='approved'?'Approve this fact':decision.next==='rejected'?'Reject this fact':'Restore as proposal'}</Button></Stack>}</Modal>
-    <Modal opened={adding} onClose={()=>setAdding(false)} title={`New observation · chapter ${cutoff}`} size="lg" centered><Stack>{!sourceChapter?<Loader size="sm"/>:<><Select label="Field" data={Object.entries(fields).map(([value,label])=>({value,label}))} value={draft.field} onChange={field=>setDraft({...draft,field})}/><Textarea label="Entity observation" description="A precise fact established in this chapter." value={draft.text} maxLength={1000} onChange={e=>setDraft({...draft,text:e.target.value})} minRows={3}/><Select label="Source passage" searchable data={passages.map((s,i)=>({value:s.id,label:`${i+1}. ${s.source.slice(0,110)}`}))} value={draft.segment||null} onChange={segment=>setDraft({...draft,segment,quote:passages.find(s=>s.id===segment)?.source.slice(0,1000)||''})}/>{draft.segment&&<Paper withBorder p="md" bg="gray.0"><Text size="sm" className="memory-quote">{passages.find(s=>s.id===draft.segment)?.source}</Text></Paper>}<Textarea label="Exact quotation" description="Keep the excerpt supporting this observation in the source language." value={draft.quote} maxLength={1000} onChange={e=>setDraft({...draft,quote:e.target.value})} minRows={3}/><Button loading={working} disabled={!draft.text.trim()||!draft.segment||!draft.quote.trim()} onClick={async()=>{if(await change('memory-add',{entity:entityId,fact:{field:draft.field,text:draft.text,evidence:[{id:draft.segment,quote:draft.quote}]}},'Observation added to proposals.'))setAdding(false);}}>Save proposal</Button></>}</Stack></Modal>
-    <Modal opened={launch} onClose={()=>setLaunch(false)} title="Enrich memory" centered><Stack><Text fw={600}>{here?chapterLabel(here):`Chapter ${cutoff}`}</Text><Text size="sm">{memoryModel} · Low · up to {data?.analysis?.batches||0} call(s), fewer if passages are already cached.</Text><Text size="sm" c="dimmed">Limit: {limits.max_tokens.toLocaleString('en')} tokens and {limits.max_calls} calls. Each fact remains a proposal for approval. Progress and usage appear in Jobs and Usage.</Text><Button leftSection={<IconSparkles size={17}/>} loading={working} onClick={async()=>{if(await change('generate',{kind:'memory',model:memoryModel,effort:'low',limits},'Memory analysis added to jobs.'))setLaunch(false);}}>Start analysis</Button></Stack></Modal>
-  </Stack>;
+      <Modal
+        opened={!!decision}
+        onClose={() => setDecision(null)}
+        title={
+          decision?.next === 'approved'
+            ? 'Approve a cited observation'
+            : decision?.next === 'rejected'
+              ? 'Reject an observation'
+              : 'Restore a proposal'
+        }
+        size="lg"
+        centered
+      >
+        {decision && (
+          <Stack>
+            <Text fw={600}>{decision.text}</Text>
+            {evidence(decision)}
+            <Textarea
+              label="Reason for the decision"
+              placeholder="Checked against the quoted passage…"
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              minRows={2}
+            />
+            <Text size="xs" c="dimmed">
+              Approval updates entity records and the context of later chapters. Approved
+              translations must be reviewed again if their context changes.
+            </Text>
+            <Button
+              color={decision.next === 'approved' ? 'teal' : 'gray'}
+              loading={working}
+              disabled={reason.trim().length < 3}
+              onClick={async () => {
+                if (
+                  await change(
+                    'memory-decide',
+                    {
+                      number: decision.number,
+                      fact_id: decision.id,
+                      hash: decision.hash,
+                      state: decision.next,
+                      reason,
+                    },
+                    'Decision saved.',
+                  )
+                )
+                  setDecision(null);
+              }}
+            >
+              {decision.next === 'approved'
+                ? 'Approve this fact'
+                : decision.next === 'rejected'
+                  ? 'Reject this fact'
+                  : 'Restore as proposal'}
+            </Button>
+          </Stack>
+        )}
+      </Modal>
+      <Modal
+        opened={adding}
+        onClose={() => setAdding(false)}
+        title={`New observation · chapter ${cutoff}`}
+        size="lg"
+        centered
+      >
+        <Stack>
+          {!sourceChapter ? (
+            <Loader size="sm" />
+          ) : (
+            <>
+              <Select
+                label="Field"
+                data={Object.entries(fields).map(([value, label]) => ({ value, label }))}
+                value={draft.field}
+                onChange={(field) => setDraft({ ...draft, field })}
+              />
+              <Textarea
+                label="Entity observation"
+                description="A precise fact established in this chapter."
+                value={draft.text}
+                maxLength={1000}
+                onChange={(e) => setDraft({ ...draft, text: e.target.value })}
+                minRows={3}
+              />
+              <Select
+                label="Source passage"
+                searchable
+                data={passages.map((s, i) => ({
+                  value: s.id,
+                  label: `${i + 1}. ${s.source.slice(0, 110)}`,
+                }))}
+                value={draft.segment || null}
+                onChange={(segment) =>
+                  setDraft({
+                    ...draft,
+                    segment,
+                    quote: passages.find((s) => s.id === segment)?.source.slice(0, 1000) || '',
+                  })
+                }
+              />
+              {draft.segment && (
+                <Paper withBorder p="md" bg="gray.0">
+                  <Text size="sm" className="memory-quote">
+                    {passages.find((s) => s.id === draft.segment)?.source}
+                  </Text>
+                </Paper>
+              )}
+              <Textarea
+                label="Exact quotation"
+                description="Keep the excerpt supporting this observation in the source language."
+                value={draft.quote}
+                maxLength={1000}
+                onChange={(e) => setDraft({ ...draft, quote: e.target.value })}
+                minRows={3}
+              />
+              <Button
+                loading={working}
+                disabled={!draft.text.trim() || !draft.segment || !draft.quote.trim()}
+                onClick={async () => {
+                  if (
+                    await change(
+                      'memory-add',
+                      {
+                        entity: entityId,
+                        fact: {
+                          field: draft.field,
+                          text: draft.text,
+                          evidence: [{ id: draft.segment, quote: draft.quote }],
+                        },
+                      },
+                      'Observation added to proposals.',
+                    )
+                  )
+                    setAdding(false);
+                }}
+              >
+                Save proposal
+              </Button>
+            </>
+          )}
+        </Stack>
+      </Modal>
+      <Modal opened={launch} onClose={() => setLaunch(false)} title="Enrich memory" centered>
+        <Stack>
+          <Text fw={600}>{here ? chapterLabel(here) : `Chapter ${cutoff}`}</Text>
+          <Text size="sm">
+            {memoryModel} · Low · up to {data?.analysis?.batches || 0} call(s), fewer if passages
+            are already cached.
+          </Text>
+          <Text size="sm" c="dimmed">
+            Limit: {limits.max_tokens.toLocaleString('en')} tokens and {limits.max_calls} calls.
+            Each fact remains a proposal for approval. Progress and usage appear in Jobs and Usage.
+          </Text>
+          <Button
+            leftSection={<IconSparkles size={17} />}
+            loading={working}
+            onClick={async () => {
+              if (
+                await change(
+                  'generate',
+                  { kind: 'memory', model: memoryModel, effort: 'low', limits },
+                  'Memory analysis added to jobs.',
+                )
+              )
+                setLaunch(false);
+            }}
+          >
+            Start analysis
+          </Button>
+        </Stack>
+      </Modal>
+    </Stack>
+  );
 }

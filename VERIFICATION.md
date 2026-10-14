@@ -1,48 +1,70 @@
 # Verification
 
-## Migration baseline — 12 October 2026
+Public verification records reproducible checks, versions and limitations.
+Real manuscripts, trial outputs, per-call tokens, account readings and execution
+logs remain in ignored local evidence. This cleanup started no real generation.
 
-- 99 synthetic tests passed locally through `test.cmd`.
-- GitHub CI passed Python 3.11/3.13 on Windows/Linux, frontend and isolated Docker.
-- Production dependency audit reported zero vulnerabilities.
-- Libraries were copied after controlled shutdown. File hashes, SQLite integrity
-  and all existing database rows were compared after startup.
-- The container is healthy, with its library mounted from this repository,
-  sources read-only and the existing Codex volume retained.
-- ChatGPT login, the Luna/Sol catalogue and quota were verified without inference.
+## Cleanup — 14 October 2026
 
-## English interface and prompt integration
+The existing suite passed 185 tests before cleanup. Added regressions cover a
+global backup without a series, active-work backup refusal, malformed JSON/media
+types, private artifact detection, binary Git object auditing, escaped report
+citations, unavailable values and absence of unrecorded historical costs.
 
-104 synthetic tests passed locally through `test.cmd` after the English and
-literary prompt changes. Five new regressions exercise the editorial contract.
+The final local cleanup suite passed **195 Python tests** through `test.cmd`.
+Ruff lint/format, frontend lint/format, all four frontend tests and the production
+build passed. The full npm dependency audit reported no vulnerabilities; existing
+locked runtime versions were preserved.
 
-Interface, diagnostics, launchers and public documentation use English.
-Imported texts and multilingual fixtures keep their declared languages; user
-sources and identifiers are never rewritten.
+An isolated browser check loaded the synthetic demo, opened Workspace, edited a
+paragraph and observed autosave, approval retirement and retained version history.
+No Codex connection or inference was started; browser artifacts stay ignored.
 
-The user-supplied Astra specification becomes one literary policy for CLI
-preparation and every translation batch. Regressions cover scoped inputs,
-current-batch schema IDs, blocked responses, exact quotations, atomic notes,
-legacy responses and exclusion from the reader.
+Four frontend transport tests cover same-origin paths, CSRF, Unicode, server
+errors, interrupted mutations without retry and unexpected non-JSON responses.
+Python and frontend formatting/linting use pinned development tools. CI enforces
+them alongside the structural tests, frontend build/audit and isolated Docker smoke.
 
-Detailed reports, account data, paths and fingerprints stay in ignored locations.
-No private manuscript, database, EPUB or credential is in Git or the Docker image.
+Run the exact checks in [CONTRIBUTING.md](CONTRIBUTING.md). The final checked
+commit's CI result is authoritative; configuration alone is not a passing result.
+[GitHub Actions](https://github.com/Relix25/Novel-Translation/actions/workflows/ci.yml)
+shows Python 3.11/3.13 on Windows/Linux, frontend and Docker.
 
-## GitHub
+## Migration and earlier foundation
 
-CI runs for main/dev pushes, PRs and manual dispatch, with pinned Actions and
-read-only permissions. Main requires six up-to-date checks, PRs and resolved
-conversations; force push and deletion are blocked for admins too.
+The initial migration passed 99 synthetic tests; English interface and literary
+prompt integration passed 104. Migration compared copied files, SQLite integrity
+and existing database rows after controlled shutdown. Docker keeps the catalogue
+mount, read-only sources and the existing Codex-owned session volume. Health,
+login/catalogue/quota checks are distinct from generation and literary validation.
 
-Dependabot follows npm, Actions and Docker on dev. The initial four PRs predated
-the Windows temporary-path test fix; their Windows failures alone do not prove
-dependency incompatibility. See [the review](docs/DEPENDENCY_REVIEW.md).
+Editorial regressions cover scoped inputs, current-batch IDs, blocked responses,
+exact quotations, atomic notes, legacy responses and reader exclusion. Original
+texts, multilingual fixtures and stable serialized markers keep their identities.
 
-Current results are in [Actions](https://github.com/Relix25/Novel-Translation/actions/workflows/ci.yml).
-Configuration alone is not a passing result; inspect the delivered commit's run.
+## Privacy and release checks
+
+`tools/check_public_files.py --history --worktree` inspects staged/history blobs
+and publishable working files. It reports filenames/categories only, checks
+private local directories and uses Git's binary-safe batch protocol. `.gitignore`
+protects private libraries, imports, backups, credentials and local evidence;
+Docker uses a public-source allowlist. Manual diff inspection remains required:
+no pattern scanner can identify every private sentence in otherwise public code.
+
+Local Docker Desktop was unavailable during cleanup. The user explicitly deferred
+deployment; no library/session volume was replaced. Docker image compatibility is
+checked by the isolated CI job, and live replacement still requires the guarded
+backup/row-comparison procedure in DOCKER.md when deployment is requested.
+
+Main requires a PR, six current CI contexts, resolved conversations and linear
+history; force push/deletion are blocked for admins too. Dev is preserved.
+Dependabot targets dev; historical dependency findings are in
+[DEPENDENCY_REVIEW.md](docs/DEPENDENCY_REVIEW.md).
 
 ## Limits
 
-Tests and catalogue access prove neither every model's generation availability
-nor literary quality. Bilingual human review remains necessary. Private texts
-and real trials are never public fixtures.
+FakeBridge tests and synthetic stdio peers validate structure and behavior. They
+prove neither access to every real model/effort nor translation quality. Real
+benchmark trials and their tokens are documented separately and privately.
+Exact citations demonstrate evidence attachment, not a correct bilingual verdict.
+AI findings never replace final chapter, summary or memory approval.
