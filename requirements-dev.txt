@@ -1,2 +1,2 @@
 # Development checks only. The application uses the Python standard library.
-ruff==0.17.0
+ruff==0.17.1
